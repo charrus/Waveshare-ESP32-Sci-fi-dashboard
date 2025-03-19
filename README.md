@@ -10,3 +10,4 @@ This is not supported out of the box and requires soldering a wire on the back o
 I have also included the background image.  Feel free to modify that anyway you wish.
 
 I hope this helps.
+![IMG_2634](https://github.com/user-attachments/assets/d3923220-90f8-4204-a73b-9c8f3d54d1b9)
