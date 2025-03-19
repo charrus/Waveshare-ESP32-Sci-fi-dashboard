@@ -11,5 +11,7 @@ I have also included the background image.  Feel free to modify that anyway you 
 
 I hope this helps.
 
+I am looking into adding a speaker directly to the unit.  I'll update once done.
+
 
 ![IMG_2634](https://github.com/user-attachments/assets/d3923220-90f8-4204-a73b-9c8f3d54d1b9)
