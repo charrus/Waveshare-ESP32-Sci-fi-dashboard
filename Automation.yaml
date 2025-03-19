@@ -1,0 +1,63 @@
+alias: Display Backlight Control
+description: Controls display backlight with fade based on occupancy and lux levels
+triggers:
+  - entity_id: binary_sensor.presence_sensor_fp2_a23f_presence_sensor_6
+    to: "on"
+    trigger: state
+  - entity_id: binary_sensor.presence_sensor_fp2_a23f_presence_sensor_6
+    to: "off"
+    for:
+      minutes: 1
+    trigger: state
+conditions: []
+actions:
+  - choose:
+      - conditions:
+          - condition: state
+            entity_id: binary_sensor.presence_sensor_fp2_a23f_presence_sensor_6
+            state: "on"
+        sequence:
+          - repeat:
+              count: 5
+              sequence:
+                - target:
+                    entity_id: light.waveshare_7inch_display_backlight
+                  data:
+                    brightness_pct: >
+                      {% set lux =
+                      states('sensor.presence_sensor_fp2_a23f_light_sensor_light_level')
+                      | float(0) %} {% set max_lux = 1000 %} {% set
+                      min_brightness = 60 %} {% set max_brightness = 100 %} {%
+                      set target = ((lux / max_lux) * (max_brightness -
+                      min_brightness)) + min_brightness if lux < max_lux else
+                      max_brightness %} {{ ((target - min_brightness) *
+                      (repeat.index / 5)) + min_brightness | round(0) }}
+                  action: light.turn_on
+                - delay:
+                    milliseconds: 400
+      - conditions:
+          - condition: state
+            entity_id: binary_sensor.presence_sensor_fp2_a23f_presence_sensor_6
+            state: "off"
+        sequence:
+          - repeat:
+              count: 5
+              sequence:
+                - target:
+                    entity_id: light.waveshare_7inch_display_backlight
+                  data:
+                    brightness_pct: >
+                      {% set current =
+                      state_attr('light.waveshare_7inch_display_backlight',
+                      'brightness') | float(0) / 2.55 %} {% set min_brightness =
+                      60 %} {{ (current - ((current - min_brightness) *
+                      (repeat.index / 5))) | round(0) }}
+                  action: light.turn_on
+                - delay:
+                    milliseconds: 400
+          - target:
+              entity_id: light.waveshare_7inch_display_backlight
+            action: light.turn_off
+            data: {}
+    default: []
+mode: single
