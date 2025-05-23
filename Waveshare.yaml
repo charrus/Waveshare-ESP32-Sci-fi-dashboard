@@ -1,77 +1,155 @@
-# Substitutions
+################################################################################
+# Substitution Variables
+################################################################################
 substitutions:
-  device_internal_name: waveshare-7inch
-  device_friendly_name: Waveshare 7inch
+  device_internal_name: waveshare_7inch
+  device_wifi_name: waveshare-7inch
+  friendly_name: Waveshare 7inch
+  device_ip_address: 172.16.17.107
+  volume_minus: "\U000F075E"
+  volume_plus:  "\U000F075D"
+  power:        "\U000F0425"
 
+################################################################################
+# Globals
+################################################################################
+globals: ##to set default reboot behavior
+  - id: wifi_connection
+    type: bool
+    restore_value: no
+    initial_value: "false"
+
+################################################################################
+# Board Configuration
+################################################################################
 esphome:
-  name: ${device_internal_name}
-  friendly_name: ${device_friendly_name}
+  name: ${device_wifi_name}
+  friendly_name: ${friendly_name}
   platformio_options:
-    build_flags: "-DBOARD_HAS_PSRAM"
-    board_build.arduino.memory_type: qio_opi
+    build_unflags: -Werror=all
     board_build.flash_mode: dio
-    board_upload.maximum_ram_size: 524288
+    build_flags: "-DBOARD_HAS_PSRAM" # Added
+    board_build.esp-idf.memory_type: qio_opi #Added
+    board_upload.maximum_ram_size: 524288 #Added
+    board_build.flash_size: 8MB #Added
+    # board_build.f_cpu: 160000000L
+    # board_build.f_flash: 120000000L
   on_boot:
-    priority: 600  # Run early during boot
+    priority: 500  # Run early during boot
     then:
       - logger.log: "Device booted successfully"
+
+psram:
+  mode: octal
+  speed: 120MHz
+
+esp32:
+  board: esp32-s3-devkitc-1
+  variant: esp32s3
+  flash_size: 8MB
+  framework:
+    type: esp-idf
+    platform_version: 6.9.0
+    version: 5.3.0
+    sdkconfig_options:
+      CONFIG_ESP32S3_DATA_CACHE_64KB: "y"
+      CONFIG_ESPTOOLPY_FLASHSIZE_8MB: "y"
+      CONFIG_FREERTOS_HZ: "1000"
+      CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240: y
+      CONFIG_ESPTOOLPY_FLASHMODE_QIO: y
+      CONFIG_ESPTOOLPY_FLASHFREQ_120M: y
+      CONFIG_SPIRAM_MODE_OCT: y
+      CONFIG_IDF_EXPERIMENTAL_FEATURES: y
+      CONFIG_SPIRAM_SPEED_120M: y
+      CONFIG_SPIRAM_FETCH_INSTRUCTIONS: y
+      CONFIG_SPIRAM_RODATA: y
+      CONFIG_ESP32S3_DATA_CACHE_LINE_64B: y
+      CONFIG_COMPILER_OPTIMIZATION_PERF: y
+      CONFIG_LV_MEM_CUSTOM: y
+      CONFIG_LV_MEMCPY_MEMSET_STD: y
+      CONFIG_LV_ATTRIBUTE_FAST_MEM: y
+      CONFIG_ESP_MAIN_TASK_AFFINITY_CPU1: y
+    advanced:
+      enable_idf_experimental_features: True
 
 font:
   - file: "fonts/OpenSans-Bold.ttf"  # Adjust path if needed
     id: roboto
     size: 48
+    bpp: 4
   - file: "fonts/OpenSans-Bold.ttf"
     id: roboto_50  # For time label
     size: 52
+    bpp: 4
   - file: "fonts/OpenSans-Bold.ttf"
     id: roboto_20  # For date and button text
     size: 16
+    bpp: 4
   - file: "fonts/OpenSans-Bold.ttf"
     id: roboto_36  # For Powerwall label, 20% smaller than roboto_50
     size: 26
+    bpp: 4
+    extras:
+      - file: "fonts/materialdesignicons-webfont.ttf"
+        glyphs: [
+          "$volume_minus", # mdi-volume-minus
+          "$volume_plus", # mdi-volume-plus
+          "$power", # mdi-power
+          ]
 
-psram:
-  mode: octal
-  speed: 80MHz
 
-esp32:
-  board: esp32-s3-devkitc-1
-  variant: ESP32S3
-  flash_size: 8MB
-  framework:
-    type: esp-idf
-    sdkconfig_options:
-      COMPILER_OPTIMIZATION_SIZE: "y"
-      CONFIG_ESP32S3_DATA_CACHE_64KB: "y"
-      CONFIG_ESPTOOLPY_FLASHSIZE_8MB: "y"
-      CONFIG_FREERTOS_HZ: "1000"
-      CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240: "y"
-      CONFIG_ESPTOOLPY_FLASHMODE_QIO: "y"
-      CONFIG_ESP32S3_DATA_CACHE_LINE_64B: "y"
-      CONFIG_COMPILER_OPTIMIZATION_PERF: "y"
 
+################################################################################
 # WiFi
+################################################################################
 wifi:
-  ssid: !secret wifi_ssid
-  password: !secret wifi_password
+  networks:
+    - ssid: !secret wifi_ssid
+      password: !secret wifi_password
+  output_power: 13
+  reboot_timeout: 30min
+  manual_ip: 
+    static_ip: ${device_ip_address}
+    gateway: !secret gateway_address
+    subnet: !secret subnet_address
+    dns1: !secret dns1
 
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "${device_wifi_name} Hotspot"
+    password: !secret wifi_ap_password
+  
+captive_portal:
+
+################################################################################
+# Web Server
+################################################################################
+web_server:
+  port: 80
+  version: 3
+  include_internal: true
+
+################################################################################
 # OTA
+################################################################################
 ota:
   - platform: esphome
-    password: esphome1
+    password: !secret ota_pw
 
-# Home Assistant API with encryption and renamed ID
+################################################################################
+# Enable Home Assistant API
+################################################################################
 api:
   id: ha_api
   encryption:
-    key: #####################################
+    key: !secret ha_api_pw
 
 # Time Component
 time:
   - platform: homeassistant
     id: homeassistant_time
     on_time:
-      - seconds: /1  # Update every second
+      - seconds: /5  # Update every 5 seconds
         then:
           - lvgl.label.update:
               id: lbl_current_time
@@ -97,22 +175,49 @@ time:
                 snprintf(buffer, sizeof(buffer), "%s %d%s %s", day_name, now.day_of_month, suffix, month_name);
                 return buffer;
 
+################################################################################
 # IO Extender
+################################################################################
 ch422g:
   - id: ch422g_hub
 
-# I2C for touchscreen
-i2c:
-  sda: GPIO08
-  scl: GPIO09
-  scan: true
-  id: bus_a
-
-# Logger
+################################################################################
+# Enable logging
+################################################################################
 logger:
-  baud_rate: 115200
-  level: DEBUG
+  level: INFO
   hardware_uart: UART0
+  logs:
+    safe_mode: INFO
+    debug: INFO
+    main: INFO
+    esp-idf: WARN
+    esp32.preferences: INFO
+    wifi: INFO
+    api: WARN
+    sntp: WARN
+    i2c: WARN
+    i2c.idf: WARN
+    ch422g: WARN
+    touchscreen: WARN
+    gt911.touchscreen: WARN
+    switch: WARN
+    sensor: WARN
+    binary_sensor: WARN
+    text_sensor: WARN
+    light: WARN
+    select: WARN
+    homeassistant.sensor: WARN
+    homeassistant.binary_sensor: WARN
+    homeassistant.text_sensor: WARN
+    template.switch: WARN
+    script: WARN
+
+uart:
+  id: uart_esp_1
+  tx_pin: GPIO43
+  rx_pin: GPIO44
+  baud_rate: 115200
 
 # Backlight Output on GPIO16
 output:
@@ -128,7 +233,9 @@ light:
     id: display_backlight
     restore_mode: ALWAYS_ON
 
-# Display Power Switch (controls backlight only)
+################################################################################
+# Switch
+################################################################################
 switch:
   - platform: template
     name: "Display Power"
@@ -142,29 +249,40 @@ switch:
     turn_off_action:
       - light.turn_off:
           id: display_backlight
+  - platform: restart
+    name: "Restart"
+    id: device_restart
+  
+  - platform: safe_mode
+    name: Use Safe Mode
+    id: device_safe_mode
+
+################################################################################
+# Sensors
+################################################################################
+sensor:
+  # WiFi
+  - platform: wifi_signal
+    name: "WiFi Signal Sensor"
+    id: ${device_internal_name}_wifi_signal_sensor
+    update_interval: 10s
+  - platform: uptime
+    type: seconds
+    name: Uptime
+    update_interval: 60s
 
 # Colors (LCARS style with orange for time/date)
 color:
   - id: lcars_beige
-    red: 90%
-    green: 80%
-    blue: 60%
+    hex: "E6CC99"
   - id: lcars_blue_gray
-    red: 60%
-    green: 70%
-    blue: 80%
+    hex: "99B3CC"
   - id: lcars_black
-    red: 0%
-    green: 0%
-    blue: 0%
+    hex: "000000"
   - id: lcars_white
-    red: 100%
-    green: 100%
-    blue: 100%
+    hex: "FFFFFF"
   - id: lcars_orange
-    red: 100%
-    green: 50%
-    blue: 0%
+    hex: "FF7F00"
 
 # Display setup (enable_pin stays on ch422g pin 2)
 display:
@@ -226,216 +344,144 @@ touchscreen:
   platform: gt911
   id: my_touch
   interrupt_pin: GPIO4
-  update_interval: 16ms
+  # update_interval: 16ms
   reset_pin:
     ch422g: ch422g_hub
     number: 1
     mode: OUTPUT
   transform:
     swap_xy: true
-    mirror_x: true
-    mirror_y: false
+    mirror_x: false
+    mirror_y: true
   on_touch:
     - lambda: |-
         ESP_LOGI("Touch", "Touch detected at x=%d, y=%d", touch.x, touch.y);
   on_update:
     - lambda: |-
-        for (auto touch: touches)  {
-            if (touch.state <= 2) {
-              ESP_LOGI("Touch points:", "id=%d x=%d, y=%d x.raw=%d, y.raw=%d", touch.id, touch.x, touch.y, touch.x_raw, touch.y_raw);
-            }
-        }
+          for (auto touch: touches)  {
+              if (touch.state <= 2) {
+                ESP_LOGI("Touch points:", "id=%d x=%d, y=%d x.raw=%d, y.raw=%d", touch.id, touch.x, touch.y, touch.x_raw, touch.y_raw);
+              }
+          }  
 
-## Text Sensors for State Monitoring
+################################################################################
+# Text Sensors
+################################################################################
 text_sensor:
+  - platform: version
+    name: "ESPHome Version"
+    hide_timestamp: true
   - platform: homeassistant
-    id: table_lights_state
-    entity_id: light.table_lights
+    id: hall_lights_state
+    entity_id: light.hall_lights
     on_value:
       then:
         - logger.log:
-            format: "Table Lights state: %s"
+            format: "Hall Lights state: %s"
             args: [ 'x.c_str()' ]
-        - lambda: |-
-            lv_obj_set_style_bg_color(id(btn_table_lights), lv_color_hex(0x000000), 0);  // Reset to black
-            if (x == "on" || x == "true" || x == "opened") {
-              lv_obj_set_style_bg_color(id(btn_table_lights), lv_color_hex(0x99B3CC), 0);  // lcars_blue_gray for "on"
-              lv_obj_set_style_bg_opa(id(btn_table_lights), LV_OPA_80, 0);
-            } else {
-              lv_obj_set_style_bg_color(id(btn_table_lights), lv_color_hex(0xE6CC99), 0);  // lcars_beige for "off"
-              lv_obj_set_style_bg_opa(id(btn_table_lights), LV_OPA_80, 0);
-            }
+        - lvgl.widget.update:
+            id: btn_lounge_uplights
+            state:
+              checked: !lambda return (0 == x.compare(std::string{"on"}));
+              disabled: !lambda return ((0 == x.compare(std::string{"unavailable"})) or (0 == x.compare(std::string{"unknown"})));
   - platform: homeassistant
-    id: sun_room_state
-    entity_id: light.sun_room
+    id: lounge_uplights_state
+    entity_id: light.lounge_uplights
     on_value:
       then:
         - logger.log:
-            format: "Sun Room state: %s"
+            format: "Lounge Uplights state: %s"
             args: [ 'x.c_str()' ]
-        - lambda: |-
-            lv_obj_set_style_bg_color(id(btn_sun_room), lv_color_hex(0x000000), 0);  // Reset to black
-            if (x == "on" || x == "true" || x == "opened") {
-              lv_obj_set_style_bg_color(id(btn_sun_room), lv_color_hex(0x99B3CC), 0);  // lcars_blue_gray for "on"
-              lv_obj_set_style_bg_opa(id(btn_sun_room), LV_OPA_80, 0);
-            } else {
-              lv_obj_set_style_bg_color(id(btn_sun_room), lv_color_hex(0xE6CC99), 0);  // lcars_beige for "off"
-              lv_obj_set_style_bg_opa(id(btn_sun_room), LV_OPA_80, 0);
-            }
+        - lvgl.widget.update:
+            id: btn_lounge_uplights
+            state:
+              checked: !lambda return (0 == x.compare(std::string{"on"}));
+              disabled: !lambda return ((0 == x.compare(std::string{"unavailable"})) or (0 == x.compare(std::string{"unknown"})));
   - platform: homeassistant
-    id: blinds_state
-    entity_id: cover.living_room_blinds
+    id: iplayer_state
+    entity_id: media_player.lg_webos_smart_tv
+    attribute: source
     on_value:
       then:
         - logger.log:
-            format: "Blinds state: %s"
+            format: "iPlayer state: %s"
             args: [ 'x.c_str()' ]
-        - lambda: |-
-            lv_obj_set_style_bg_color(id(btn_blinds), lv_color_hex(0x000000), 0);  // Reset to black
-            if (x == "open" || x == "true" || x == "opened") {
-              lv_obj_set_style_bg_color(id(btn_blinds), lv_color_hex(0x99B3CC), 0);  // lcars_blue_gray for "on"
-              lv_obj_set_style_bg_opa(id(btn_blinds), LV_OPA_80, 0);
-            } else {
-              lv_obj_set_style_bg_color(id(btn_blinds), lv_color_hex(0xE6CC99), 0);  // lcars_beige for "off"
-              lv_obj_set_style_bg_opa(id(btn_blinds), LV_OPA_80, 0);
-            }
+        - lvgl.widget.update:
+            id: btn_iplayer
+            state:
+              checked: !lambda return (0 == x.compare(std::string{"BBC iPlayer"}));
+              disabled: !lambda return ((0 == x.compare(std::string{"unavailable"})) or (0 == x.compare(std::string{"unknown"})));
   - platform: homeassistant
-    id: fan_state
-    entity_id: fan.sonoff_100054aaa7
+    id: kodi_state
+    entity_id: media_player.lg_webos_smart_tv
+    attribute: source
     on_value:
       then:
         - logger.log:
-            format: "Fan state: %s"
+            format: "Kodi state: %s"
             args: [ 'x.c_str()' ]
-        - lambda: |-
-            lv_obj_set_style_bg_color(id(btn_fan), lv_color_hex(0x000000), 0);  // Reset to black
-            if (x == "on" || x == "true" || x == "opened") {
-              lv_obj_set_style_bg_color(id(btn_fan), lv_color_hex(0x99B3CC), 0);  // lcars_blue_gray for "on"
-              lv_obj_set_style_bg_opa(id(btn_fan), LV_OPA_80, 0);
-            } else {
-              lv_obj_set_style_bg_color(id(btn_fan), lv_color_hex(0xE6CC99), 0);  // lcars_beige for "off"
-              lv_obj_set_style_bg_opa(id(btn_fan), LV_OPA_80, 0);
-            }
+        - lvgl.widget.update:
+            id: btn_kodi
+            state:
+              checked: !lambda return (0 == x.compare(std::string{"Game Console"}));
+              disabled: !lambda return ((0 == x.compare(std::string{"unavailable"})) or (0 == x.compare(std::string{"unknown"})));
   - platform: homeassistant
-    id: garage_state
-    entity_id: cover.ratgdov25i_1748d6_door
+    id: volume_percentage
+    entity_id: media_player.lounge_speakers
+    attribute: volume_level
     on_value:
       then:
         - logger.log:
-            format: "Garage state: %s"
-            args: [ 'x.c_str()' ]
-        - lambda: |-
-            lv_obj_set_style_bg_color(id(btn_garage), lv_color_hex(0x000000), 0);  // Reset to black
-            if (x == "open" || x == "true" || x == "opened") {
-              lv_obj_set_style_bg_color(id(btn_garage), lv_color_hex(0x99B3CC), 0);  // lcars_blue_gray for "on"
-              lv_obj_set_style_bg_opa(id(btn_garage), LV_OPA_80, 0);
-            } else {
-              lv_obj_set_style_bg_color(id(btn_garage), lv_color_hex(0xE6CC99), 0);  // lcars_beige for "off"
-              lv_obj_set_style_bg_opa(id(btn_garage), LV_OPA_80, 0);
-            }
-  - platform: homeassistant
-    id: tv_state
-    entity_id: switch.livingroomtv
-    on_value:
-      then:
-        - logger.log:
-            format: "TV state: %s"
-            args: [ 'x.c_str()' ]
-        - lambda: |-
-            lv_obj_set_style_bg_color(id(btn_tv), lv_color_hex(0x000000), 0);  // Reset to black
-            if (x == "on" || x == "true" || x == "opened") {
-              lv_obj_set_style_bg_color(id(btn_tv), lv_color_hex(0x99B3CC), 0);  // lcars_blue_gray for "on"
-              lv_obj_set_style_bg_opa(id(btn_tv), LV_OPA_80, 0);
-            } else {
-              lv_obj_set_style_bg_color(id(btn_tv), lv_color_hex(0xE6CC99), 0);  // lcars_beige for "off"
-              lv_obj_set_style_bg_opa(id(btn_tv), LV_OPA_80, 0);
-            }
-  - platform: homeassistant
-    id: apple_tv_state
-    entity_id: switch.livingroomappletv
-    on_value:
-      then:
-        - logger.log:
-            format: "Apple TV state: %s"
-            args: [ 'x.c_str()' ]
-        - lambda: |-
-            lv_obj_set_style_bg_color(id(btn_apple_tv), lv_color_hex(0x000000), 0);  // Reset to black
-            if (x == "on" || x == "true" || x == "opened") {
-              lv_obj_set_style_bg_color(id(btn_apple_tv), lv_color_hex(0x99B3CC), 0);  // lcars_blue_gray for "on"
-              lv_obj_set_style_bg_opa(id(btn_apple_tv), LV_OPA_80, 0);
-            } else {
-              lv_obj_set_style_bg_color(id(btn_apple_tv), lv_color_hex(0xE6CC99), 0);  // lcars_beige for "off"
-              lv_obj_set_style_bg_opa(id(btn_apple_tv), LV_OPA_80, 0);
-            }
-  - platform: homeassistant
-    id: powerwall_percentage
-    entity_id: sensor.home_percentage_charged
-    on_value:
-      then:
-        - logger.log:
-            format: "Powerwall Percentage: %s"
+            format: "Volume: %s"
             args: [ 'x.c_str()' ]
         - lvgl.label.update:
-            id: lbl_powerwall_percentage
+            id: lbl_volume_percentage
             text: !lambda |-
               // Convert the string to a float, round to the nearest integer, and convert back to string
-              float value = std::stof(x);
+              float value = std::stof(x) * 100;
               int rounded_value = static_cast<int>(std::round(value));
               char buffer[32];
-              snprintf(buffer, sizeof(buffer), "Powerwall 3: %d%%", rounded_value);
+              snprintf(buffer, sizeof(buffer), "Volume: %d%%", rounded_value);
               return buffer;
   - platform: homeassistant
-    id: kitchen_lights_state
-    entity_id: light.kitchen_lights_hue
+    id: lg_power_state
+    entity_id: media_player.lg_webos_smart_tv
     on_value:
       then:
         - logger.log:
-            format: "Kitchen Lights state: %s"
+            format: "LG Power state: %s"
             args: [ 'x.c_str()' ]
-        - lambda: |-
-            lv_obj_set_style_bg_color(id(btn_kitchen_lights), lv_color_hex(0x000000), 0);  // Reset to black
-            if (x == "on" || x == "true" || x == "opened") {
-              lv_obj_set_style_bg_color(id(btn_kitchen_lights), lv_color_hex(0x99B3CC), 0);  // lcars_blue_gray for "on"
-              lv_obj_set_style_bg_opa(id(btn_kitchen_lights), LV_OPA_80, 0);
-            } else {
-              lv_obj_set_style_bg_color(id(btn_kitchen_lights), lv_color_hex(0xE6CC99), 0);  // lcars_beige for "off"
-              lv_obj_set_style_bg_opa(id(btn_kitchen_lights), LV_OPA_80, 0);
-            }
+        - lvgl.widget.update:
+            id: btn_lg_power
+            state:
+              checked: !lambda return (0 == x.compare(std::string{"on"}));
+              disabled: !lambda return ((0 == x.compare(std::string{"unavailable"})) or (0 == x.compare(std::string{"unknown"})));
   - platform: homeassistant
-    id: adelyns_lights_state
-    entity_id: light.adelyns_lights
+    id: kitchen_lamp1_state
+    entity_id: light.kitchen_lamp1
     on_value:
       then:
         - logger.log:
-            format: "Adelyn's Lights state: %s"
+            format: "Kitchen Lamp state: %s"
             args: [ 'x.c_str()' ]
-        - lambda: |-
-            lv_obj_set_style_bg_color(id(btn_adelyns_lights), lv_color_hex(0x000000), 0);  // Reset to black
-            if (x == "on" || x == "true" || x == "opened") {
-              lv_obj_set_style_bg_color(id(btn_adelyns_lights), lv_color_hex(0x99B3CC), 0);  // lcars_blue_gray for "on"
-              lv_obj_set_style_bg_opa(id(btn_adelyns_lights), LV_OPA_80, 0);
-            } else {
-              lv_obj_set_style_bg_color(id(btn_adelyns_lights), lv_color_hex(0xE6CC99), 0);  // lcars_beige for "off"
-              lv_obj_set_style_bg_opa(id(btn_adelyns_lights), LV_OPA_80, 0);
-            }
+        - lvgl.widget.update:
+            id: btn_kitchen_lamp1
+            state:
+              checked: !lambda return (0 == x.compare(std::string{"on"}));
+              disabled: !lambda return ((0 == x.compare(std::string{"unavailable"})) or (0 == x.compare(std::string{"unknown"})));
   - platform: homeassistant
-    id: julians_lights_state
-    entity_id: light.julians_room
+    id: kitchen_uplights_state
+    entity_id: light.kitchen_uplights
     on_value:
       then:
         - logger.log:
-            format: "Julian's Lights state: %s"
+            format: "Kitchen Uplights state: %s"
             args: [ 'x.c_str()' ]
-        - lambda: |-
-            lv_obj_set_style_bg_color(id(btn_julians_lights), lv_color_hex(0x000000), 0);  // Reset to black
-            if (x == "on" || x == "true" || x == "opened") {
-              lv_obj_set_style_bg_color(id(btn_julians_lights), lv_color_hex(0x99B3CC), 0);  // lcars_blue_gray for "on"
-              lv_obj_set_style_bg_opa(id(btn_julians_lights), LV_OPA_80, 0);
-            } else {
-              lv_obj_set_style_bg_color(id(btn_julians_lights), lv_color_hex(0xE6CC99), 0);  // lcars_beige for "off"
-              lv_obj_set_style_bg_opa(id(btn_julians_lights), LV_OPA_80, 0);
-            }
-
+        - lvgl.widget.update:
+            id: btn_kitchen_uplights
+            state:
+              checked: !lambda return (0 == x.compare(std::string{"on"}));
+              disabled: !lambda return ((0 == x.compare(std::string{"unavailable"})) or (0 == x.compare(std::string{"unknown"})));
 
 # Add the image component for the new background
 image:
@@ -447,11 +493,32 @@ image:
 
 # LVGL setup with LCARS-inspired layout
 lvgl:
+  theme:
+    button:
+      width: 160
+      height: 70
+      bg_color: lcars_blue_gray  # Changed to blue_gray (off state)
+      border_color: lcars_blue_gray
+      bg_opa: 80%  # 80% opacity (204/255)
+      radius: 20
+      border_width: 2
+      border_opa: 80%
+      pressed:
+        border_color: lcars_orange
+        bg_opa: 80%
+        border_opa: 80%
+      checked:
+        border_color: lcars_beige
+        bg_color: lcars_beige
+        bg_opa: 80%
+        border_opa: 80%
+      pad_all: 0
+
   displays: my_display
   touchscreens: my_touch
-  buffer_size: 20%
+  buffer_size: 25%
   color_depth: 16
-  log_level: DEBUG
+  log_level: INFO
   pages:
     - id: main_page
       widgets:
@@ -517,297 +584,234 @@ lvgl:
               grid_columns: ["175px", "175px"]
               grid_rows: ["70px", "15px", "70px", "15px", "70px", "15px", "70px", "15px", "70px"]
             widgets:
-              # Row 1: Table Lights (left) and Sun Room (right)
+              # Row 1: Hall Lights (left) and Lounge Uplights (right)
               - button:
-                  id: btn_table_lights
+                  id: btn_hall_lights
                   grid_cell_column_pos: 0
                   grid_cell_row_pos: 0
                   grid_cell_column_span: 1
                   grid_cell_x_align: CENTER
                   grid_cell_y_align: STRETCH
-                  width: 160
-                  height: 70
-                  bg_color: lcars_blue_gray  # Changed to blue_gray (off state)
-                  bg_opa: 80%  # 80% opacity (204/255)
-                  radius: 20
-                  border_width: 0
-                  pad_all: 0
                   on_click:
                     then:
-                      - logger.log: "Table Lights button clicked!"
+                      - logger.log: "Hall Lights button clicked!"
                       - homeassistant.action:
                           action: light.toggle
                           data:
-                            entity_id: light.table_lights
+                            entity_id: light.hall_lights
                   widgets:
                     - label:
-                        text: "TABLE LIGHTS"
+                        text: "HALL LIGHTS"
                         align: CENTER
                         text_font: roboto_20
                         text_color: lcars_black
-                        # y: 40
               - button:
-                  id: btn_sun_room
+                  id: btn_lounge_uplights
                   grid_cell_column_pos: 1
                   grid_cell_row_pos: 0
                   grid_cell_column_span: 1
                   grid_cell_x_align: CENTER
                   grid_cell_y_align: STRETCH
-                  width: 160
-                  height: 70
-                  bg_color: lcars_blue_gray  # Already blue_gray
-                  bg_opa: 80%  # 80% opacity (204/255)
-                  radius: 20
-                  border_width: 0
-                  pad_all: 0
                   on_click:
                     then:
-                      - logger.log: "Sun Room button clicked!"
+                      - logger.log: "Lounge Uplights button clicked!"
                       - homeassistant.action:
                           action: light.toggle
                           data:
-                            entity_id: light.sun_room
+                            entity_id: light.lounge_uplights
                   widgets:
                     - label:
-                        text: "SUN ROOM"
+                        id: btn_lounge_uplights_text
+                        text: "LOUNGE UPLIGHTS"
                         align: CENTER
                         text_font: roboto_20
                         text_color: lcars_black
-                        # y: 40
 
-              # Row 3: Blinds (left) and Garage (right)
+              # Row 3: VolDown (left) and Vol Up (right)
               - button:
-                  id: btn_blinds
+                  id: btn_voldown
                   grid_cell_column_pos: 0
                   grid_cell_row_pos: 2
                   grid_cell_column_span: 1
                   grid_cell_x_align: CENTER
                   grid_cell_y_align: STRETCH
-                  width: 160
-                  height: 70
-                  bg_color: lcars_blue_gray  # Changed to blue_gray (off state)
-                  bg_opa: 80%  # 80% opacity (204/255)
-                  radius: 20
-                  border_width: 0
-                  pad_all: 0
                   on_click:
                     then:
-                      - logger.log: "Blinds button clicked!"
+                      - logger.log: "VolDown button clicked!"
                       - homeassistant.action:
-                          action: cover.toggle
+                          action: media_player.volume_down
                           data:
-                            entity_id: cover.living_room_blinds
+                            entity_id: media_player.lounge_speakers
                   widgets:
                     - label:
-                        text: "BLINDS"
+                        text: "$volume_minus" # mdi-volume-minus
                         align: CENTER
-                        text_font: roboto_20
+                        text_font: roboto_36
                         text_color: lcars_black
-                       # y: 40
               - button:
-                  id: btn_garage
+                  id: btn_volup
                   grid_cell_column_pos: 1
                   grid_cell_row_pos: 2
                   grid_cell_column_span: 1
                   grid_cell_x_align: CENTER
                   grid_cell_y_align: STRETCH
-                  width: 160
-                  height: 70
-                  bg_color: lcars_blue_gray  # Already blue_gray
-                  bg_opa: 80%  # 80% opacity (204/255)
-                  radius: 20
-                  border_width: 0
-                  pad_all: 0
                   on_click:
                     then:
-                      - logger.log: "Garage button clicked!"
+                      - logger.log: "Vol Up button clicked!"
                       - homeassistant.action:
-                          action: cover.toggle
+                          action: media_player.volume_up
                           data:
-                            entity_id: cover.ratgdov25i_1748d6_door
+                            entity_id: media_player.lounge_speakers
                   widgets:
                     - label:
-                        text: "GARAGE"
+                        text: "$volume_plus" # mdi-volume-plus
                         align: CENTER
-                        text_font: roboto_20
+                        text_font: roboto_36
                         text_color: lcars_black
-                       # y: 40
 
-              # Row 5: Apple TV (left) and TV (right)
+              # Row 5: Kodi (left) and iPlayer (right)
               - button:
-                  id: btn_apple_tv
+                  id: btn_kodi
                   grid_cell_column_pos: 0
                   grid_cell_row_pos: 4
                   grid_cell_column_span: 1
                   grid_cell_x_align: CENTER
                   grid_cell_y_align: STRETCH
-                  width: 160
-                  height: 70
-                  bg_color: lcars_blue_gray  # Changed to blue_gray (off state)
-                  bg_opa: 80%  # 80% opacity (204/255)
-                  radius: 20
-                  border_width: 0
-                  pad_all: 0
                   on_click:
                     then:
-                      - logger.log: "Apple TV button clicked!"
+                      - logger.log: "Kodi button clicked!"
                       - homeassistant.action:
-                          action: switch.toggle
+                          action: media_player.turn_on
                           data:
-                            entity_id: switch.livingroomappletv
+                            entity_id: media_player.lg_webos_smart_tv
+                      - homeassistant.action:
+                          action: media_player.select_source
+                          data:
+                            entity_id: media_player.lg_webos_smart_tv
+                            source: Game Console
                   widgets:
                     - label:
-                        text: "APPLE TV"
+                        text: "KODI"
                         align: CENTER
                         text_font: roboto_20
                         text_color: lcars_black
-                       # y: 40
               - button:
-                  id: btn_tv
+                  id: btn_iplayer
                   grid_cell_column_pos: 1
                   grid_cell_row_pos: 4
                   grid_cell_column_span: 1
                   grid_cell_x_align: CENTER
                   grid_cell_y_align: STRETCH
-                  width: 160
-                  height: 70
-                  bg_color: lcars_blue_gray  # Already blue_gray
-                  bg_opa: 80%  # 80% opacity (204/255)
-                  radius: 20
-                  border_width: 0
-                  pad_all: 0
                   on_click:
                     then:
-                      - logger.log: "TV button clicked!"
+                      - logger.log: "iPlayer button clicked!"
                       - homeassistant.action:
-                          action: switch.toggle
+                          action: media_player.turn_on
                           data:
-                            entity_id: switch.livingroomtv
+                            entity_id: media_player.lg_webos_smart_tv
+                      - homeassistant.action:
+                          action: media_player.select_source
+                          data:
+                            entity_id: media_player.lg_webos_smart_tv
+                            source: BBC iPlayer
+                      - homeassistant.action:
+                          action: webostv.button
+                          data:
+                            entity_id: media_player.lg_webos_smart_tv
+                            button: ENTER
                   widgets:
                     - label:
-                        text: "TV"
+                        text: "IPLAYER"
                         align: CENTER
                         text_font: roboto_20
                         text_color: lcars_black
-                       # y: 40
 
-              # Row 7: Fan (left) and Kitchen (right)
+              # Row 7: OK (left) and Power (right)
               - button:
-                  id: btn_fan
+                  id: btn_ok
                   grid_cell_column_pos: 0
                   grid_cell_row_pos: 6
                   grid_cell_column_span: 1
                   grid_cell_x_align: CENTER
                   grid_cell_y_align: STRETCH
-                  width: 160
-                  height: 70
-                  bg_color: lcars_blue_gray  # Changed to blue_gray (off state)
-                  bg_opa: 80%  # 80% opacity (204/255)
-                  radius: 20
-                  border_width: 0
-                  pad_all: 0
                   on_click:
                     then:
-                      - logger.log: "Fan button clicked!"
+                      - logger.log: "OK button clicked!"
                       - homeassistant.action:
-                          action: fan.toggle
+                          action: webostv.button
                           data:
-                            entity_id: fan.sonoff_100054aaa7
+                            entity_id: media_player.lg_webos_smart_tv
+                            button: ENTER
                   widgets:
                     - label:
-                        text: "FAN"
+                        text: "OK"
                         align: CENTER
                         text_font: roboto_20
                         text_color: lcars_black
-                       # y: 40
               - button:
-                  id: btn_kitchen_lights
+                  id: btn_lg_power
                   grid_cell_column_pos: 1
                   grid_cell_row_pos: 6
                   grid_cell_column_span: 1
                   grid_cell_x_align: CENTER
                   grid_cell_y_align: STRETCH
-                  width: 160
-                  height: 70
-                  bg_color: lcars_blue_gray  # Already blue_gray
-                  bg_opa: 80%  # 80% opacity (204/255)
-                  radius: 20
-                  border_width: 0
-                  pad_all: 0
                   on_click:
                     then:
-                      - logger.log: "Kitchen Lights button clicked!"
+                      - logger.log: "LG Power button clicked!"
                       - homeassistant.action:
-                          action: light.toggle
+                          action: media_player.toggle
                           data:
-                            entity_id: light.kitchen_lights_hue
+                            entity_id: media_player.lg_webos_smart_tv
                   widgets:
                     - label:
-                        text: "KITCHEN"
+                        text: "$power"
                         align: CENTER
-                        text_font: roboto_20
+                        text_font: roboto_36
                         text_color: lcars_black
-                       # y: 40
 
-              # Row 9: Adelyn's Room (left) and Julian's Room (right)
+              # Row 9: Kitchen Lamp (left) and Kitchen Uplights (right)
               - button:
-                  id: btn_adelyns_lights
+                  id: btn_kitchen_lamp1
                   grid_cell_column_pos: 0
                   grid_cell_row_pos: 8
                   grid_cell_column_span: 1
                   grid_cell_x_align: CENTER
                   grid_cell_y_align: CENTER
-                  width: 160
-                  height: 70
-                  bg_color: lcars_blue_gray  # Changed to blue_gray (off state)
-                  bg_opa: 80%  # 80% opacity (204/255)
-                  radius: 20
-                  border_width: 0
-                  pad_all: 0
                   on_click:
                     then:
-                      - logger.log: "Adelyn's Lights button clicked!"
+                      - logger.log: "Kitchen Lamp button clicked!"
                       - homeassistant.action:
                           action: light.toggle
                           data:
-                            entity_id: light.adelyns_lights
+                            entity_id: light.kitchen_lamp1
                   widgets:
                     - label:
-                        text: "ADELYN'S ROOM"
+                        text: "KITCHEN LAMP"
                         align: CENTER
                         text_font: roboto_20
                         text_color: lcars_black
-                       # y: 40
               - button:
-                  id: btn_julians_lights
+                  id: btn_kitchen_uplights
                   grid_cell_column_pos: 1
                   grid_cell_row_pos: 8
                   grid_cell_column_span: 1
                   grid_cell_x_align: CENTER
                   grid_cell_y_align: CENTER
-                  width: 160
-                  height: 70
-                  bg_color: lcars_blue_gray  # Already blue_gray
-                  bg_opa: 80%  # 80% opacity (204/255)
-                  radius: 20
-                  border_width: 0
-                  pad_all: 0
                   on_click:
                     then:
-                      - logger.log: "Julian's Lights button clicked!"
+                      - logger.log: "Kitchen Uplights button clicked!"
                       - homeassistant.action:
                           action: light.toggle
                           data:
-                            entity_id: light.julians_room
+                            entity_id: light.kitchen_uplights
                   widgets:
                     - label:
-                        text: "JULIAN'S ROOM"
+                        text: "KITCHEN UPLIGHTS"
                         align: CENTER
                         text_font: roboto_20
                         text_color: lcars_black
-                      #  y: 40
 
-        # Powerwall Percentage area (orange text, bottom left black area)
+        # Volume Percentage area (orange text, bottom left black area)
         - obj:
             x: 5
             y: 730
@@ -821,11 +825,19 @@ lvgl:
             pad_all: 0
             widgets:
               - label:
-                  id: lbl_powerwall_percentage
+                  id: lbl_volume_percentage
                   align: CENTER
                   x: 0
                   y: 0
-                  text: "Powerwall 3: 0%"
+                  text: "Volume: 0%"
                   text_font: roboto_36
                   text_color: lcars_orange
                   height: 35
+
+# I2C for touchscreen
+i2c:
+  sda: GPIO08
+  scl: GPIO09
+  scan: true
+  id: bus_a
+  frequency: 100kHz
