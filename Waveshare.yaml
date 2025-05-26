@@ -488,7 +488,7 @@ lvgl:
 
   displays: my_display
   touchscreens: my_touch
-  buffer_size: 25%
+  buffer_size: 12%
   color_depth: 16
   log_level: INFO
   pages:
