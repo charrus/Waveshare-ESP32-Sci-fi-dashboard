@@ -11,29 +11,18 @@ substitutions:
   power:        "\U000F0425"
 
 ################################################################################
-# Globals
-################################################################################
-globals: ##to set default reboot behavior
-  - id: wifi_connection
-    type: bool
-    restore_value: no
-    initial_value: "false"
-
-################################################################################
 # Board Configuration
 ################################################################################
 esphome:
   name: ${device_wifi_name}
   friendly_name: ${friendly_name}
+  area: Lounge
   platformio_options:
-    # build_unflags: -Werror=all
     board_build.flash_mode: dio
-    # build_flags: "-DBOARD_HAS_PSRAM" # Added
-    board_build.esp-idf.memory_type: qio_opi #Added
-    board_upload.maximum_ram_size: 524288 #Added
-    # board_build.flash_size: 8MB #Added
-    # board_build.f_cpu: 160000000L
-    # board_build.f_flash: 120000000L
+    board_build.esp-idf.memory_type: qio_opi
+    board_upload.maximum_ram_size: 524288
+    board_build.flash_size: 8MB
+    board_build.f_cpu: 160000000L
 
 psram:
   mode: octal
@@ -45,28 +34,28 @@ esp32:
   flash_size: 8MB
   framework:
     type: esp-idf
-    # platform_version: 6.9.0
-    # version: 5.3.0
-    sdkconfig_options:
+    sdkconfig_options: # From: https://www.waveshare.com/wiki/ESP32-S3-Touch-LCD-7#Precautions
       CONFIG_ESP32S3_DATA_CACHE_64KB: "y"
       CONFIG_ESPTOOLPY_FLASHSIZE_8MB: "y"
       CONFIG_FREERTOS_HZ: "1000"
       CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240: y
       CONFIG_ESPTOOLPY_FLASHMODE_QIO: y
-      CONFIG_ESPTOOLPY_FLASHFREQ_120M: y
+      CONFIG_ESPTOOLPY_FLASHFREQ_120M: y      # To be consistent with PSRAM
       CONFIG_SPIRAM_MODE_OCT: y
       CONFIG_IDF_EXPERIMENTAL_FEATURES: y
-      CONFIG_SPIRAM_SPEED_120M: y
+      CONFIG_SPIRAM_SPEED_120M: y             # Need to be consistent with FLASH
       CONFIG_SPIRAM_FETCH_INSTRUCTIONS: y
       CONFIG_SPIRAM_RODATA: y
       CONFIG_ESP32S3_DATA_CACHE_LINE_64B: y
       CONFIG_COMPILER_OPTIMIZATION_PERF: y
-      # CONFIG_LV_MEM_CUSTOM: y
-      # CONFIG_LV_MEMCPY_MEMSET_STD: y
-      # CONFIG_LV_ATTRIBUTE_FAST_MEM: y
-      # CONFIG_ESP_MAIN_TASK_AFFINITY_CPU1: y
-      CONFIG_SPIRAM_TIMING_TUNING_POINT_VIA_TEMPERATURE_SENSOR: y
+      # The following LVGL configuration items are helpful for frame rate improvement (LVGL v8.3):
+      CONFIG_LV_MEM_CUSTOM: y
+      CONFIG_LV_MEMCPY_MEMSET_STD: y
+      CONFIG_LV_ATTRIBUTE_FAST_MEM: y
+      # We don't have BOOTLOADER_FLASH_DC_AWARE - so suppress warning:
+      CONFIG_SPI_FLASH_HPM_DC_DISABLE: y
     advanced:
+      # Required for 120MHz PSRAM & FLASH:
       enable_idf_experimental_features: True
 
 font:
@@ -173,6 +162,15 @@ time:
                 return buffer;
 
 ################################################################################
+# I2C for touchscreen
+################################################################################
+i2c:
+  sda: GPIO08
+  scl: GPIO09
+  scan: true
+  id: bus_a
+
+################################################################################
 # IO Extender
 ################################################################################
 ch422g:
@@ -184,12 +182,6 @@ ch422g:
 logger:
   hardware_uart: UART0
   level: DEBUG
-
-# uart:
-#   id: uart_esp_1
-#   tx_pin: GPIO43
-#   rx_pin: GPIO44
-#   baud_rate: 115200
 
 # Backlight Output on GPIO16
 output:
@@ -269,14 +261,14 @@ display:
       width: 800
       height: 480
     de_pin:
-      number: 5
+      number: GPIO5
     hsync_pin:
-      number: 46
+      number: GPIO46
       ignore_strapping_warning: true
     vsync_pin:
-      number: 3
+      number: GPIO3
       ignore_strapping_warning: true
-    pclk_pin: 7
+    pclk_pin: GPIO7
     pclk_inverted: true
     reset_pin:
       ch422g: ch422g_hub
@@ -284,12 +276,12 @@ display:
     enable_pin:
       ch422g: ch422g_hub
       number: 2
-    hsync_back_porch: 10
-    hsync_front_porch: 20
-    hsync_pulse_width: 10
-    vsync_back_porch: 10
-    vsync_front_porch: 10
-    vsync_pulse_width: 10
+    hsync_back_porch: 8
+    hsync_front_porch: 8
+    hsync_pulse_width: 4
+    vsync_back_porch: 8
+    vsync_front_porch: 8
+    vsync_pulse_width: 4
     data_pins:
       red:
         - 1
@@ -340,19 +332,16 @@ touchscreen:
 # Text Sensors
 ################################################################################
 text_sensor:
-  - platform: version
-    name: "ESPHome Version"
-    hide_timestamp: true
   - platform: homeassistant
-    id: hall_lights_state
-    entity_id: light.hall_lights
+    id: lounge_sputnik_lights_state
+    entity_id: light.lounge_dimmer_light_0
     on_value:
       then:
         - logger.log:
-            format: "Hall Lights state: %s"
+            format: "Lounge Sputnik Lights state: %s"
             args: [ 'x.c_str()' ]
         - lvgl.widget.update:
-            id: btn_lounge_uplights
+            id: btn_lounge_sputnik_lights
             state:
               checked: !lambda return (0 == x.compare(std::string{"on"}));
               disabled: !lambda return ((0 == x.compare(std::string{"unavailable"})) or (0 == x.compare(std::string{"unknown"})));
@@ -457,7 +446,7 @@ text_sensor:
 
 # Add the image component for the new background
 image:
-  - file: "/config/esphome/images/background.png"  # Updated path
+  - file: "images/background.png"  # Relative path
     id: lcars_background
     type: RGB565  # As confirmed by your successful compile
     resize: 480x800
@@ -556,9 +545,9 @@ lvgl:
               grid_columns: ["175px", "175px"]
               grid_rows: ["70px", "15px", "70px", "15px", "70px", "15px", "70px", "15px", "70px"]
             widgets:
-              # Row 1: Hall Lights (left) and Lounge Uplights (right)
+              # Row 1: Lounge Sputnik Lights (left) and Lounge Uplights (right)
               - button:
-                  id: btn_hall_lights
+                  id: btn_lounge_sputnik_lights
                   grid_cell_column_pos: 0
                   grid_cell_row_pos: 0
                   grid_cell_column_span: 1
@@ -566,14 +555,14 @@ lvgl:
                   grid_cell_y_align: STRETCH
                   on_click:
                     then:
-                      - logger.log: "Hall Lights button clicked!"
+                      - logger.log: "Lounge Lights button clicked!"
                       - homeassistant.action:
                           action: light.toggle
                           data:
-                            entity_id: light.hall_lights
+                            entity_id: light.lounge_dimmer_light_0
                   widgets:
                     - label:
-                        text: "HALL LIGHTS"
+                        text: "LOUNGE SPUTNIK"
                         align: CENTER
                         text_font: roboto_20
                         text_color: lcars_black
@@ -616,7 +605,7 @@ lvgl:
                             entity_id: media_player.lounge_speakers
                   widgets:
                     - label:
-                        text: "$volume_minus" # mdi-volume-minus
+                        text: "$volume_minus"
                         align: CENTER
                         text_font: roboto_36
                         text_color: lcars_black
@@ -636,7 +625,7 @@ lvgl:
                             entity_id: media_player.lounge_speakers
                   widgets:
                     - label:
-                        text: "$volume_plus" # mdi-volume-plus
+                        text: "$volume_plus"
                         align: CENTER
                         text_font: roboto_36
                         text_color: lcars_black
@@ -686,11 +675,6 @@ lvgl:
                           data:
                             entity_id: media_player.lg_webos_smart_tv
                             source: BBC iPlayer
-                      - homeassistant.action:
-                          action: webostv.button
-                          data:
-                            entity_id: media_player.lg_webos_smart_tv
-                            button: ENTER
                   widgets:
                     - label:
                         text: "IPLAYER"
@@ -805,11 +789,3 @@ lvgl:
                   text_font: roboto_36
                   text_color: lcars_orange
                   height: 35
-
-# I2C for touchscreen
-i2c:
-  sda: GPIO08
-  scl: GPIO09
-  scan: true
-  id: bus_a
-  frequency: 100kHz
