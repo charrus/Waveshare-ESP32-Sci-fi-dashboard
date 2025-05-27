@@ -32,13 +32,14 @@ esp32:
   board: esp32-s3-devkitc-1
   variant: esp32s3
   flash_size: 8MB
+  cpu_frequency: 240MHz # For 2025.5.1
   framework:
     type: esp-idf
     sdkconfig_options: # From: https://www.waveshare.com/wiki/ESP32-S3-Touch-LCD-7#Precautions
       CONFIG_ESP32S3_DATA_CACHE_64KB: "y"
       CONFIG_ESPTOOLPY_FLASHSIZE_8MB: "y"
       CONFIG_FREERTOS_HZ: "1000"
-      CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240: y
+      # CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240: y # This is handled above with 2025.5.1 with cpu_frequency.
       CONFIG_ESPTOOLPY_FLASHMODE_QIO: y
       CONFIG_ESPTOOLPY_FLASHFREQ_120M: y      # To be consistent with PSRAM
       CONFIG_SPIRAM_MODE_OCT: y
