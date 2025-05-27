@@ -52,7 +52,7 @@ esp32:
       CONFIG_LV_MEM_CUSTOM: y
       CONFIG_LV_MEMCPY_MEMSET_STD: y
       CONFIG_LV_ATTRIBUTE_FAST_MEM: y
-      # We don't have BOOTLOADER_FLASH_DC_AWARE - so suppress warning:
+      # We seem to son't have BOOTLOADER_FLASH_DC_AWARE - so suppress warning:
       CONFIG_SPI_FLASH_HPM_DC_DISABLE: y
     advanced:
       # Required for 120MHz PSRAM & FLASH:
@@ -78,9 +78,9 @@ font:
     extras:
       - file: "fonts/materialdesignicons-webfont.ttf"
         glyphs: [
-          "$volume_minus", # mdi-volume-minus
-          "$volume_plus", # mdi-volume-plus
-          "$power", # mdi-power
+          "$volume_minus",
+          "$volume_plus",
+          "$power",
           ]
 
 
@@ -92,13 +92,12 @@ wifi:
   networks:
     - ssid: !secret wifi_ssid
       password: !secret wifi_password
-  output_power: 8.5
-  reboot_timeout: 30min
-  manual_ip: 
-    static_ip: ${device_ip_address}
-    gateway: !secret gateway_address
-    subnet: !secret subnet_address
-    dns1: !secret dns1
+# Leave it using DHCP now WiFi is stable
+#  manual_ip: 
+#    static_ip: ${device_ip_address}
+#    gateway: !secret gateway_address
+#    subnet: !secret subnet_address
+#    dns1: !secret dns1
 
   # Enable fallback hotspot (captive portal) in case wifi connection fails
   ap:
@@ -135,7 +134,7 @@ time:
   - platform: homeassistant
     id: homeassistant_time
     on_time:
-      - seconds: /5  # Update every 5 seconds
+      - seconds: /1  # Update every 1 seconds
         then:
           - lvgl.label.update:
               id: lbl_current_time
@@ -246,7 +245,15 @@ color:
   - id: lcars_white
     hex: "FFFFFF"
   - id: lcars_orange
-    hex: "FF7F00"
+    hex: "ff8800"
+  - id: lcars_lightblue
+    hex: "9cb0ff"
+  - id: lcars_red
+    hex: "eb4e4e"
+  - id: lcars_lightorange
+    hex: "ff9c00"
+  - id: lcars_lavender
+    hex: "cc99ff"
 
 # Display setup (enable_pin stays on ch422g pin 2)
 display:
@@ -458,21 +465,16 @@ lvgl:
     button:
       width: 160
       height: 70
-      bg_color: lcars_blue_gray  # Changed to blue_gray (off state)
-      border_color: lcars_blue_gray
-      bg_opa: 80%  # 80% opacity (204/255)
+      bg_color: lcars_lightblue  # Off / Unchecked
+      bg_opa: 80%
       radius: 20
-      border_width: 2
-      border_opa: 80%
+      border_width: 0
       pressed:
-        border_color: lcars_orange
-        bg_opa: 80%
-        border_opa: 80%
+        bg_color: lcars_lightorange
+        bg_opa: 100%
       checked:
-        border_color: lcars_beige
-        bg_color: lcars_beige
-        bg_opa: 80%
-        border_opa: 80%
+        bg_color: lcars_orange
+        bg_opa: 100%
       pad_all: 0
 
   displays: my_display
