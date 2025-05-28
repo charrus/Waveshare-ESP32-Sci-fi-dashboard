@@ -6,9 +6,10 @@ substitutions:
   device_wifi_name: waveshare-7inch
   friendly_name: Waveshare 7inch
   device_ip_address: 172.16.17.107
-  volume_minus: "\U000F075E"
-  volume_plus:  "\U000F075D"
-  power:        "\U000F0425"
+  volume_minus: "\ue04d"
+  volume_plus:  "\ue050"
+  power:        "\uf16f"
+  wifi:         "\ue63e"
 
 ################################################################################
 # Board Configuration
@@ -39,7 +40,7 @@ esp32:
       CONFIG_ESP32S3_DATA_CACHE_64KB: "y"
       CONFIG_ESPTOOLPY_FLASHSIZE_8MB: "y"
       CONFIG_FREERTOS_HZ: "1000"
-      # CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240: y # This is handled above with 2025.5.1 with cpu_frequency.
+      # CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240: y # This is handled above with 2025.5.1 with cpu_frequency
       CONFIG_ESPTOOLPY_FLASHMODE_QIO: y
       CONFIG_ESPTOOLPY_FLASHFREQ_120M: y      # To be consistent with PSRAM
       CONFIG_SPIRAM_MODE_OCT: y
@@ -58,32 +59,6 @@ esp32:
     advanced:
       # Required for 120MHz PSRAM & FLASH:
       enable_idf_experimental_features: True
-
-font:
-  - file: "fonts/OpenSans-Bold.ttf"  # Adjust path if needed
-    id: roboto
-    size: 48
-    bpp: 4
-  - file: "fonts/OpenSans-Bold.ttf"
-    id: roboto_50  # For time label
-    size: 52
-    bpp: 4
-  - file: "fonts/OpenSans-Bold.ttf"
-    id: roboto_20  # For date and button text
-    size: 16
-    bpp: 4
-  - file: "fonts/OpenSans-Bold.ttf"
-    id: roboto_36  # For Powerwall label, 20% smaller than roboto_50
-    size: 26
-    bpp: 4
-    extras:
-      - file: "fonts/materialdesignicons-webfont.ttf"
-        glyphs: [
-          "$volume_minus",
-          "$volume_plus",
-          "$power",
-          ]
-
 
 
 ################################################################################
@@ -129,37 +104,18 @@ api:
   id: ha_api
   encryption:
     key: !secret ha_api_pw
-
-# Time Component
-time:
-  - platform: homeassistant
-    id: homeassistant_time
-    on_time:
-      - seconds: /1  # Update every 1 seconds
+  on_client_connected:
+    - if:
+        condition:
+          lambda: 'return (0 == client_info.find("Home Assistant "));'
         then:
-          - lvgl.label.update:
-              id: lbl_current_time
-              text: !lambda |-
-                char buffer[16];
-                auto now = id(homeassistant_time).now();
-                snprintf(buffer, sizeof(buffer), "%02d:%02d", now.hour, now.minute);
-                return buffer;
-          - lvgl.label.update:
-              id: lbl_current_date
-              text: !lambda |-
-                char buffer[32];
-                auto now = id(homeassistant_time).now();
-                const char* days[] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
-                const char* months[] = {"January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"};
-                const char* day_name = days[now.day_of_week - 1];
-                const char* month_name = months[now.month - 1];
-                const char* suffix;
-                if (now.day_of_month % 10 == 1 && now.day_of_month != 11) suffix = "st";
-                else if (now.day_of_month % 10 == 2 && now.day_of_month != 12) suffix = "nd";
-                else if (now.day_of_month % 10 == 3 && now.day_of_month != 13) suffix = "rd";
-                else suffix = "th";
-                snprintf(buffer, sizeof(buffer), "%s %d%s %s", day_name, now.day_of_month, suffix, month_name);
-                return buffer;
+          - lvgl.widget.show: lbl_hastatus
+  on_client_disconnected:
+    - if:
+        condition:
+          lambda: 'return (0 == client_info.find("Home Assistant "));'
+        then:
+          - lvgl.widget.hide: lbl_hastatus
 
 ################################################################################
 # I2C for touchscreen
@@ -198,6 +154,94 @@ light:
     restore_mode: ALWAYS_ON
 
 ################################################################################
+# Fonts
+################################################################################
+font:
+  - file: "gfonts://Roboto@700"
+    id: font_time
+    size: 52
+    bpp: 4
+  - file: "gfonts://Material+Symbols+Rounded@500"
+    id: font_wifi
+    size: 48
+    bpp: 4
+    glyphs: [
+      "$wifi",
+      ]
+  - file: "gfonts://Roboto@700"
+    id: font_button
+    size: 20
+    bpp: 4
+  - file: "gfonts://Roboto+Condensed@700"
+    id: font_date
+    size: 20
+    bpp: 4
+  - file: "gfonts://Material+Symbols+Rounded@500"
+    id: font_icons
+    size: 36
+    bpp: 4
+    glyphs: [
+      "$volume_minus",
+      "$volume_plus",
+      "$power",
+      ]
+  - file: "gfonts://Roboto@700"
+    id: font_volume
+    size: 26
+    bpp: 4
+
+################################################################################
+# Colours
+################################################################################
+color:
+  - id: lcars_beige
+    hex: "E6CC99"
+  - id: lcars_blue_gray
+    hex: "99B3CC"
+  - id: lcars_black
+    hex: "000000"
+  - id: lcars_white
+    hex: "FFFFFF"
+  - id: lcars_orange
+    hex: "ff8800"
+  - id: lcars_lightblue
+    hex: "6c7acc"
+  - id: lcars_red
+    hex: "eb4e4e"
+  - id: lcars_lightorange
+    hex: "ff9c00"
+  - id: lcars_lavender
+    hex: "cc99ff"
+
+################################################################################
+# Time
+################################################################################
+time:
+  - platform: homeassistant
+    id: homeassistant_time
+    on_time_sync:
+      - script.execute: time_update
+    on_time:
+      - minutes: '*'
+        seconds: 0
+        then:
+          - script.execute: time_update
+
+script:
+  - id: time_update
+    then:
+      - lvgl.label.update:
+          id: lbl_current_time
+          text:
+            time_format: "%R"
+            time: !lambda return id(homeassistant_time).now();
+      - lvgl.label.update:
+          id: lbl_current_date
+          text:
+            time_format: "%A %B %d %Y"
+            time: !lambda return id(homeassistant_time).now();
+
+################################################################################
 # Switch
 ################################################################################
 switch:
@@ -213,6 +257,7 @@ switch:
     turn_off_action:
       - light.turn_off:
           id: display_backlight
+
   - platform: restart
     name: "Restart"
     id: device_restart
@@ -230,33 +275,128 @@ sensor:
     name: "WiFi Signal Sensor"
     id: ${device_internal_name}_wifi_signal_sensor
     update_interval: 10s
+
   - platform: uptime
     type: seconds
     name: Uptime
     update_interval: 60s
 
-# Colors (LCARS style with orange for time/date)
-color:
-  - id: lcars_beige
-    hex: "E6CC99"
-  - id: lcars_blue_gray
-    hex: "99B3CC"
-  - id: lcars_black
-    hex: "000000"
-  - id: lcars_white
-    hex: "FFFFFF"
-  - id: lcars_orange
-    hex: "ff8800"
-  - id: lcars_lightblue
-    hex: "9cb0ff"
-  - id: lcars_red
-    hex: "eb4e4e"
-  - id: lcars_lightorange
-    hex: "ff9c00"
-  - id: lcars_lavender
-    hex: "cc99ff"
+################################################################################
+# Text Sensors
+################################################################################
+text_sensor:
+  - platform: homeassistant
+    id: sonos_volume_level
+    entity_id: media_player.lounge_speakers
+    attribute: volume_level
+    on_value:
+      then:
+        - logger.log:
+            format: "Volume: %s"
+            args: [ 'x.c_str()' ]
+        - lvgl.label.update:
+            id: lbl_volume_percentage
+            text: !lambda |-
+              char buffer[32];
+              float value = lv_pct(std::stof(x) * 100);
+              snprintf(buffer, sizeof(buffer), "Volume: %d%%", value);
+              return buffer;
 
-# Display setup (enable_pin stays on ch422g pin 2)
+  - platform: homeassistant
+    id: lg_state
+    entity_id: media_player.lg_webos_smart_tv
+    attribute: source
+    on_value:
+      then:
+        - logger.log:
+            format: "LG state: %s"
+            args: [ 'x.c_str()' ]
+        - lvgl.widget.update:
+            id: btn_iplayer
+            state:
+              checked: !lambda return (0 == x.compare(std::string{"BBC iPlayer"}));
+        - lvgl.widget.update:
+            id: btn_kodi
+            state:
+              checked: !lambda return (0 == x.compare(std::string{"Game Console"}));
+
+################################################################################
+# Binary Sensors
+################################################################################
+binary_sensor:
+  - platform: homeassistant
+    id: lounge_sputnik_lights_state
+    entity_id: light.lounge_dimmer_light_0
+    publish_initial_state: true
+    on_state:
+      then:
+        - logger.log:
+            format: "Lounge Sputnik Lights state: %d"
+            args: [ 'x' ]
+        - lvgl.widget.update:
+            id: btn_lounge_sputnik_lights
+            state:
+              checked: !lambda return x;
+
+  - platform: homeassistant
+    id: lounge_uplights_state
+    entity_id: light.lounge_uplights
+    publish_initial_state: true
+    on_state:
+      then:
+        - logger.log:
+            format: "Lounge Uplights state: %d"
+            args: [ 'x' ]
+        - lvgl.widget.update:
+            id: btn_lounge_uplights
+            state:
+              checked: !lambda return x;
+
+  - platform: homeassistant
+    id: lg_power_state
+    entity_id: media_player.lg_webos_smart_tv
+    publish_initial_state: true
+    on_state:
+      then:
+        - logger.log:
+            format: "LG Power state: %d"
+            args: [ 'x' ]
+        - lvgl.widget.update:
+            id: btn_lg_power
+            state:
+              checked: !lambda return x;
+
+  - platform: homeassistant
+    id: kitchen_lamp1_state
+    entity_id: light.kitchen_lamp1
+    publish_initial_state: true
+    on_state:
+      then:
+        - logger.log:
+            format: "Kitchen Lamp state: %d"
+            args: [ 'x' ]
+        - lvgl.widget.update:
+            id: btn_kitchen_lamp1
+            state:
+              checked: !lambda return x;
+
+  - platform: homeassistant
+    id: kitchen_uplights_state
+    entity_id: light.kitchen_uplights
+    publish_initial_state: true
+    on_state:
+      then:
+        - logger.log:
+            format: "Kitchen Uplights state: %d"
+            args: [ 'x' ]
+        - lvgl.widget.update:
+            id: btn_kitchen_uplights
+            state:
+              checked: !lambda return x;
+
+################################################################################
+# Display
+################################################################################
 display:
   - platform: rpi_dpi_rgb
     id: my_display
@@ -311,7 +451,9 @@ display:
         - 47
         - 21
 
-# Touchscreen
+################################################################################
+# Touch Screen
+################################################################################
 touchscreen:
   platform: gt911
   id: my_touch
@@ -337,122 +479,8 @@ touchscreen:
           }  
 
 ################################################################################
-# Text Sensors
+# Background
 ################################################################################
-text_sensor:
-  - platform: homeassistant
-    id: lounge_sputnik_lights_state
-    entity_id: light.lounge_dimmer_light_0
-    on_value:
-      then:
-        - logger.log:
-            format: "Lounge Sputnik Lights state: %s"
-            args: [ 'x.c_str()' ]
-        - lvgl.widget.update:
-            id: btn_lounge_sputnik_lights
-            state:
-              checked: !lambda return (0 == x.compare(std::string{"on"}));
-              disabled: !lambda return ((0 == x.compare(std::string{"unavailable"})) or (0 == x.compare(std::string{"unknown"})));
-  - platform: homeassistant
-    id: lounge_uplights_state
-    entity_id: light.lounge_uplights
-    on_value:
-      then:
-        - logger.log:
-            format: "Lounge Uplights state: %s"
-            args: [ 'x.c_str()' ]
-        - lvgl.widget.update:
-            id: btn_lounge_uplights
-            state:
-              checked: !lambda return (0 == x.compare(std::string{"on"}));
-              disabled: !lambda return ((0 == x.compare(std::string{"unavailable"})) or (0 == x.compare(std::string{"unknown"})));
-  - platform: homeassistant
-    id: iplayer_state
-    entity_id: media_player.lg_webos_smart_tv
-    attribute: source
-    on_value:
-      then:
-        - logger.log:
-            format: "iPlayer state: %s"
-            args: [ 'x.c_str()' ]
-        - lvgl.widget.update:
-            id: btn_iplayer
-            state:
-              checked: !lambda return (0 == x.compare(std::string{"BBC iPlayer"}));
-              disabled: !lambda return ((0 == x.compare(std::string{"unavailable"})) or (0 == x.compare(std::string{"unknown"})));
-  - platform: homeassistant
-    id: kodi_state
-    entity_id: media_player.lg_webos_smart_tv
-    attribute: source
-    on_value:
-      then:
-        - logger.log:
-            format: "Kodi state: %s"
-            args: [ 'x.c_str()' ]
-        - lvgl.widget.update:
-            id: btn_kodi
-            state:
-              checked: !lambda return (0 == x.compare(std::string{"Game Console"}));
-              disabled: !lambda return ((0 == x.compare(std::string{"unavailable"})) or (0 == x.compare(std::string{"unknown"})));
-  - platform: homeassistant
-    id: volume_percentage
-    entity_id: media_player.lounge_speakers
-    attribute: volume_level
-    on_value:
-      then:
-        - logger.log:
-            format: "Volume: %s"
-            args: [ 'x.c_str()' ]
-        - lvgl.label.update:
-            id: lbl_volume_percentage
-            text: !lambda |-
-              // Convert the string to a float, round to the nearest integer, and convert back to string
-              float value = std::stof(x) * 100;
-              int rounded_value = static_cast<int>(std::round(value));
-              char buffer[32];
-              snprintf(buffer, sizeof(buffer), "Volume: %d%%", rounded_value);
-              return buffer;
-  - platform: homeassistant
-    id: lg_power_state
-    entity_id: media_player.lg_webos_smart_tv
-    on_value:
-      then:
-        - logger.log:
-            format: "LG Power state: %s"
-            args: [ 'x.c_str()' ]
-        - lvgl.widget.update:
-            id: btn_lg_power
-            state:
-              checked: !lambda return (0 == x.compare(std::string{"on"}));
-              disabled: !lambda return ((0 == x.compare(std::string{"unavailable"})) or (0 == x.compare(std::string{"unknown"})));
-  - platform: homeassistant
-    id: kitchen_lamp1_state
-    entity_id: light.kitchen_lamp1
-    on_value:
-      then:
-        - logger.log:
-            format: "Kitchen Lamp state: %s"
-            args: [ 'x.c_str()' ]
-        - lvgl.widget.update:
-            id: btn_kitchen_lamp1
-            state:
-              checked: !lambda return (0 == x.compare(std::string{"on"}));
-              disabled: !lambda return ((0 == x.compare(std::string{"unavailable"})) or (0 == x.compare(std::string{"unknown"})));
-  - platform: homeassistant
-    id: kitchen_uplights_state
-    entity_id: light.kitchen_uplights
-    on_value:
-      then:
-        - logger.log:
-            format: "Kitchen Uplights state: %s"
-            args: [ 'x.c_str()' ]
-        - lvgl.widget.update:
-            id: btn_kitchen_uplights
-            state:
-              checked: !lambda return (0 == x.compare(std::string{"on"}));
-              disabled: !lambda return ((0 == x.compare(std::string{"unavailable"})) or (0 == x.compare(std::string{"unknown"})));
-
-# Add the image component for the new background
 image:
   - file: "images/background.png"  # Relative path
     id: lcars_background
@@ -460,29 +488,43 @@ image:
     resize: 480x800
 
 
-# LVGL setup with LCARS-inspired layout
+################################################################################
+# LVGL
+################################################################################
 lvgl:
+  displays: my_display
+  touchscreens: my_touch
+  buffer_size: 12%
+  log_level: INFO
   theme:
     button:
       width: 160
       height: 70
       bg_color: lcars_lightblue  # Off / Unchecked
-      bg_opa: 80%
+      bg_opa: 50%
       radius: 20
       border_width: 0
+      checkable: true
+      shadow_opa: TRANSP
       pressed:
         bg_color: lcars_lightorange
-        bg_opa: 100%
+        bg_opa: COVER
       checked:
         bg_color: lcars_orange
-        bg_opa: 100%
+        bg_opa: COVER
       pad_all: 0
-
-  displays: my_display
-  touchscreens: my_touch
-  buffer_size: 12%
-  color_depth: 16
-  log_level: INFO
+    label:
+      border_width: 0
+      align: CENTER
+      text_align: CENTER
+  style_definitions:
+    - id: header_footer
+      bg_color: lcars_black
+      bg_opa: TRANSP
+      radius: 0
+      pad_all: 0
+      text_color: lcars_orange
+      border_width: 0
   pages:
     - id: main_page
       widgets:
@@ -492,57 +534,43 @@ lvgl:
             y: 0
             width: 480
             height: 800
-            bg_color: lcars_black
-            bg_opa: 100%  # Fully opaque (equivalent to LV_OPA_COVER)
-            border_width: 0
-            border_opa: 0%  # Fully transparent border
-            pad_all: 0
-            radius: 0
+            styles: header_footer
             bg_image_src: lcars_background
-            bg_image_opa: 100%  # Fully opaque background image
+            bg_image_opa: COVER
             bg_image_recolor_opa: 0  # No recoloring
 
         # Time and Date area (orange text, moved back to original left position)
         - obj:
-            x: 19
-            y: -10
-            width: 4200
-            height: 100
-            bg_color: lcars_black
-            bg_opa: 0  # Fully transparent (equivalent to LV_OPA_TRANSP)
-            radius: 0
-            border_width: 0
-            border_opa: 0  # Fully transparent border
-            pad_all: 0
+            x: 82
+            y: 4
+            width: 220
+            height: 84
+            styles: header_footer
             widgets:
               - label:
                   id: lbl_current_time
-                  align: LEFT_MID
-                  x: 64
-                  y: 5
-                  text: "00:00"
-                  text_font: roboto_50
-                  text_color: lcars_orange
-                  height: 80
+                  align: TOP_LEFT
+                  text_font: font_time
+              - label:
+                  id: lbl_hastatus
+                  align: TOP_RIGHT
+                  text: "$wifi"
+                  text_font: font_wifi
+                  hidden: true
               - label:
                   id: lbl_current_date
-                  align: LEFT_MID
-                  x: 64
-                  y: 64
-                  text: "Tuesday 18th March"
-                  text_font: roboto_20
-                  text_color: lcars_orange
-                  height: 80
+                  align: BOTTOM_LEFT
+                  text_font: font_date
 
         # Button grid
         - obj:
             x: 90
             y: 175
             width: 360
-            height: 500  # Adjusted for new layout
-            bg_opa: 0  # Fully transparent (equivalent to LV_OPA_TRANSP)
-            border_width: 0
+            height: 500
+            bg_opa: TRANSP
             pad_all: 0
+            border_width: 0
             layout:
               type: GRID
               grid_columns: ["175px", "175px"]
@@ -565,9 +593,8 @@ lvgl:
                             entity_id: light.lounge_dimmer_light_0
                   widgets:
                     - label:
-                        text: "LOUNGE SPUTNIK"
-                        align: CENTER
-                        text_font: roboto_20
+                        text: "LOUNGE\nSPUTNIK"
+                        text_font: font_button
                         text_color: lcars_black
               - button:
                   id: btn_lounge_uplights
@@ -586,9 +613,8 @@ lvgl:
                   widgets:
                     - label:
                         id: btn_lounge_uplights_text
-                        text: "LOUNGE UPLIGHTS"
-                        align: CENTER
-                        text_font: roboto_20
+                        text: "LOUNGE\nUPLIGHTS"
+                        text_font: font_button
                         text_color: lcars_black
 
               # Row 3: VolDown (left) and Vol Up (right)
@@ -609,8 +635,7 @@ lvgl:
                   widgets:
                     - label:
                         text: "$volume_minus"
-                        align: CENTER
-                        text_font: roboto_36
+                        text_font: font_icons
                         text_color: lcars_black
               - button:
                   id: btn_volup
@@ -629,8 +654,7 @@ lvgl:
                   widgets:
                     - label:
                         text: "$volume_plus"
-                        align: CENTER
-                        text_font: roboto_36
+                        text_font: font_icons
                         text_color: lcars_black
 
               # Row 5: Kodi (left) and iPlayer (right)
@@ -656,8 +680,7 @@ lvgl:
                   widgets:
                     - label:
                         text: "KODI"
-                        align: CENTER
-                        text_font: roboto_20
+                        text_font: font_button
                         text_color: lcars_black
               - button:
                   id: btn_iplayer
@@ -681,8 +704,7 @@ lvgl:
                   widgets:
                     - label:
                         text: "IPLAYER"
-                        align: CENTER
-                        text_font: roboto_20
+                        text_font: font_button
                         text_color: lcars_black
 
               # Row 7: OK (left) and Power (right)
@@ -704,8 +726,7 @@ lvgl:
                   widgets:
                     - label:
                         text: "OK"
-                        align: CENTER
-                        text_font: roboto_20
+                        text_font: font_button
                         text_color: lcars_black
               - button:
                   id: btn_lg_power
@@ -724,8 +745,7 @@ lvgl:
                   widgets:
                     - label:
                         text: "$power"
-                        align: CENTER
-                        text_font: roboto_36
+                        text_font: font_icons
                         text_color: lcars_black
 
               # Row 9: Kitchen Lamp (left) and Kitchen Uplights (right)
@@ -745,9 +765,8 @@ lvgl:
                             entity_id: light.kitchen_lamp1
                   widgets:
                     - label:
-                        text: "KITCHEN LAMP"
-                        align: CENTER
-                        text_font: roboto_20
+                        text: "KITCHEN\nLAMP"
+                        text_font: font_button
                         text_color: lcars_black
               - button:
                   id: btn_kitchen_uplights
@@ -765,30 +784,20 @@ lvgl:
                             entity_id: light.kitchen_uplights
                   widgets:
                     - label:
-                        text: "KITCHEN UPLIGHTS"
-                        align: CENTER
-                        text_font: roboto_20
+                        text: "KITCHEN\nUPLIGHTS"
+                        text_font: font_button
                         text_color: lcars_black
 
         # Volume Percentage area (orange text, bottom left black area)
         - obj:
-            x: 5
-            y: 730
-            width: 350
-            height: 62
-            bg_color: lcars_black
-            bg_opa: 0  # Fully transparent (equivalent to LV_OPA_TRANSP)
-            radius: 0
-            border_width: 0
-            border_opa: 0  # Fully transparent border
-            pad_all: 0
+            x: 58
+            y: 736
+            width: 254
+            height: 56
+            styles: header_footer
             widgets:
               - label:
                   id: lbl_volume_percentage
-                  align: CENTER
-                  x: 0
-                  y: 0
+                  align: BOTTOM_LEFT
                   text: "Volume: 0%"
-                  text_font: roboto_36
-                  text_color: lcars_orange
-                  height: 35
+                  text_font: font_volume
