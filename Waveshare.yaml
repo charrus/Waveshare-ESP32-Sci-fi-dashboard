@@ -5,11 +5,11 @@ substitutions:
   device_internal_name: waveshare_7inch
   device_wifi_name: waveshare-7inch
   friendly_name: Waveshare 7inch
-  device_ip_address: 172.16.17.107
   volume_minus: "\ue04d"
   volume_plus:  "\ue050"
   power:        "\uf16f"
   wifi:         "\ue63e"
+  wifi_off:     "\ue648"
 
 ################################################################################
 # Board Configuration
@@ -68,12 +68,6 @@ wifi:
   networks:
     - ssid: !secret wifi_ssid
       password: !secret wifi_password
-# Leave it using DHCP now WiFi is stable
-#  manual_ip: 
-#    static_ip: ${device_ip_address}
-#    gateway: !secret gateway_address
-#    subnet: !secret subnet_address
-#    dns1: !secret dns1
 
   # Enable fallback hotspot (captive portal) in case wifi connection fails
   ap:
@@ -109,13 +103,17 @@ api:
         condition:
           lambda: 'return (0 == client_info.find("Home Assistant "));'
         then:
-          - lvgl.widget.show: lbl_hastatus
+          - lvgl.label.update:
+              id: lbl_hastatus
+              text: "$wifi"
   on_client_disconnected:
     - if:
         condition:
           lambda: 'return (0 == client_info.find("Home Assistant "));'
         then:
-          - lvgl.widget.hide: lbl_hastatus
+          - lvgl.label.update:
+              id: lbl_hastatus
+              text: "$wifi_off"
 
 ################################################################################
 # I2C for touchscreen
@@ -136,9 +134,12 @@ ch422g:
 # Enable logging
 ################################################################################
 logger:
-  hardware_uart: UART0
+  hardware_uart: USB_SERIAL_JTAG
   level: DEBUG
 
+################################################################################
+# Backlight
+################################################################################
 # Backlight Output on GPIO16
 output:
   - platform: ledc
@@ -154,10 +155,22 @@ light:
     restore_mode: ALWAYS_ON
 
 ################################################################################
+# DFPlayer
+################################################################################
+dfplayer:
+  uart_id: dfplayer_uart
+
+uart:
+  - id: dfplayer_uart
+    baud_rate: 9600
+    tx_pin: 19
+    rx_pin: 20
+
+################################################################################
 # Fonts
 ################################################################################
 font:
-  - file: "gfonts://Roboto@700"
+  - file: "gfonts://DM+Sans@700"
     id: font_time
     size: 52
     bpp: 4
@@ -167,12 +180,13 @@ font:
     bpp: 4
     glyphs: [
       "$wifi",
+      "$wifi_off",
       ]
-  - file: "gfonts://Roboto@700"
+  - file: "gfonts://DM+Sans@700"
     id: font_button
     size: 20
     bpp: 4
-  - file: "gfonts://Roboto+Condensed@700"
+  - file: "gfonts://DM+Sans@700"
     id: font_date
     size: 20
     bpp: 4
@@ -185,9 +199,9 @@ font:
       "$volume_plus",
       "$power",
       ]
-  - file: "gfonts://Roboto@700"
+  - file: "gfonts://DM+Sans@700"
     id: font_volume
-    size: 26
+    size: 32
     bpp: 4
 
 ################################################################################
@@ -238,7 +252,7 @@ script:
       - lvgl.label.update:
           id: lbl_current_date
           text:
-            time_format: "%A %B %d %Y"
+            time_format: "%A %b %d %Y"
             time: !lambda return id(homeassistant_time).now();
 
 ################################################################################
@@ -281,10 +295,6 @@ sensor:
     name: Uptime
     update_interval: 60s
 
-################################################################################
-# Text Sensors
-################################################################################
-text_sensor:
   - platform: homeassistant
     id: sonos_volume_level
     entity_id: media_player.lounge_speakers
@@ -292,16 +302,18 @@ text_sensor:
     on_value:
       then:
         - logger.log:
-            format: "Volume: %s"
-            args: [ 'x.c_str()' ]
+            format: "Sonos volume state: %f"
+            args: [ x ]
         - lvgl.label.update:
             id: lbl_volume_percentage
-            text: !lambda |-
-              char buffer[32];
-              float value = lv_pct(std::stof(x) * 100);
-              snprintf(buffer, sizeof(buffer), "Volume: %d%%", value);
-              return buffer;
+            text:
+              format: "Volume: %.0f%%"
+              args: [ x * 100 ]
 
+################################################################################
+# Text Sensors
+################################################################################
+text_sensor:
   - platform: homeassistant
     id: lg_state
     entity_id: media_player.lg_webos_smart_tv
@@ -367,30 +379,30 @@ binary_sensor:
               checked: !lambda return x;
 
   - platform: homeassistant
-    id: kitchen_lamp1_state
-    entity_id: light.kitchen_lamp1
+    id: hall_lights_state
+    entity_id: light.hall_lights
     publish_initial_state: true
     on_state:
       then:
         - logger.log:
-            format: "Kitchen Lamp state: %d"
+            format: "Hall Lights state: %d"
             args: [ 'x' ]
         - lvgl.widget.update:
-            id: btn_kitchen_lamp1
+            id: btn_hall_lights
             state:
               checked: !lambda return x;
 
   - platform: homeassistant
-    id: kitchen_uplights_state
-    entity_id: light.kitchen_uplights
+    id: hall_uplight_state
+    entity_id: light.wiser_up_light_switch
     publish_initial_state: true
     on_state:
       then:
         - logger.log:
-            format: "Kitchen Uplights state: %d"
+            format: "Hall Uplight state: %d"
             args: [ 'x' ]
         - lvgl.widget.update:
-            id: btn_kitchen_uplights
+            id: btn_hall_uplight
             state:
               checked: !lambda return x;
 
@@ -504,7 +516,6 @@ lvgl:
       bg_opa: 50%
       radius: 20
       border_width: 0
-      checkable: true
       shadow_opa: TRANSP
       pressed:
         bg_color: lcars_lightorange
@@ -512,7 +523,6 @@ lvgl:
       checked:
         bg_color: lcars_orange
         bg_opa: COVER
-      pad_all: 0
     label:
       border_width: 0
       align: CENTER
@@ -551,16 +561,17 @@ lvgl:
                   id: lbl_current_time
                   align: TOP_LEFT
                   text_font: font_time
+                  text: "--:--"
               - label:
                   id: lbl_hastatus
                   align: TOP_RIGHT
-                  text: "$wifi"
+                  text: "$wifi_off"
                   text_font: font_wifi
-                  hidden: true
               - label:
                   id: lbl_current_date
                   align: BOTTOM_LEFT
                   text_font: font_date
+                  text: "Friday May 30 2025"
 
         # Button grid
         - obj:
@@ -573,20 +584,20 @@ lvgl:
             border_width: 0
             layout:
               type: GRID
-              grid_columns: ["175px", "175px"]
-              grid_rows: ["70px", "15px", "70px", "15px", "70px", "15px", "70px", "15px", "70px"]
+              grid_columns: ["180px", "180px"]
+              grid_rows: ["95px", "95px", "95px", "95px", "95px"]
+              pad_row: 10
+              pad_column: 10
             widgets:
               # Row 1: Lounge Sputnik Lights (left) and Lounge Uplights (right)
               - button:
                   id: btn_lounge_sputnik_lights
                   grid_cell_column_pos: 0
                   grid_cell_row_pos: 0
-                  grid_cell_column_span: 1
-                  grid_cell_x_align: CENTER
-                  grid_cell_y_align: STRETCH
                   on_click:
                     then:
                       - logger.log: "Lounge Lights button clicked!"
+                      - dfplayer.play_mp3: 3
                       - homeassistant.action:
                           action: light.toggle
                           data:
@@ -600,12 +611,10 @@ lvgl:
                   id: btn_lounge_uplights
                   grid_cell_column_pos: 1
                   grid_cell_row_pos: 0
-                  grid_cell_column_span: 1
-                  grid_cell_x_align: CENTER
-                  grid_cell_y_align: STRETCH
                   on_click:
                     then:
                       - logger.log: "Lounge Uplights button clicked!"
+                      - dfplayer.play_mp3: 3
                       - homeassistant.action:
                           action: light.toggle
                           data:
@@ -621,13 +630,11 @@ lvgl:
               - button:
                   id: btn_voldown
                   grid_cell_column_pos: 0
-                  grid_cell_row_pos: 2
-                  grid_cell_column_span: 1
-                  grid_cell_x_align: CENTER
-                  grid_cell_y_align: STRETCH
+                  grid_cell_row_pos: 1
                   on_click:
                     then:
                       - logger.log: "VolDown button clicked!"
+                      - dfplayer.play_mp3: 3
                       - homeassistant.action:
                           action: media_player.volume_down
                           data:
@@ -640,13 +647,11 @@ lvgl:
               - button:
                   id: btn_volup
                   grid_cell_column_pos: 1
-                  grid_cell_row_pos: 2
-                  grid_cell_column_span: 1
-                  grid_cell_x_align: CENTER
-                  grid_cell_y_align: STRETCH
+                  grid_cell_row_pos: 1
                   on_click:
                     then:
                       - logger.log: "Vol Up button clicked!"
+                      - dfplayer.play_mp3: 3
                       - homeassistant.action:
                           action: media_player.volume_up
                           data:
@@ -661,13 +666,11 @@ lvgl:
               - button:
                   id: btn_kodi
                   grid_cell_column_pos: 0
-                  grid_cell_row_pos: 4
-                  grid_cell_column_span: 1
-                  grid_cell_x_align: CENTER
-                  grid_cell_y_align: STRETCH
+                  grid_cell_row_pos: 2
                   on_click:
                     then:
                       - logger.log: "Kodi button clicked!"
+                      - dfplayer.play_mp3: 3
                       - homeassistant.action:
                           action: media_player.turn_on
                           data:
@@ -685,13 +688,11 @@ lvgl:
               - button:
                   id: btn_iplayer
                   grid_cell_column_pos: 1
-                  grid_cell_row_pos: 4
-                  grid_cell_column_span: 1
-                  grid_cell_x_align: CENTER
-                  grid_cell_y_align: STRETCH
+                  grid_cell_row_pos: 2
                   on_click:
                     then:
                       - logger.log: "iPlayer button clicked!"
+                      - dfplayer.play_mp3: 3
                       - homeassistant.action:
                           action: media_player.turn_on
                           data:
@@ -701,6 +702,12 @@ lvgl:
                           data:
                             entity_id: media_player.lg_webos_smart_tv
                             source: BBC iPlayer
+                      - delay: 5s
+                      - homeassistant.action:
+                          action: webostv.button
+                          data:
+                            entity_id: media_player.lg_webos_smart_tv
+                            button: ENTER
                   widgets:
                     - label:
                         text: "IPLAYER"
@@ -711,13 +718,11 @@ lvgl:
               - button:
                   id: btn_ok
                   grid_cell_column_pos: 0
-                  grid_cell_row_pos: 6
-                  grid_cell_column_span: 1
-                  grid_cell_x_align: CENTER
-                  grid_cell_y_align: STRETCH
+                  grid_cell_row_pos: 3
                   on_click:
                     then:
                       - logger.log: "OK button clicked!"
+                      - dfplayer.play_mp3: 3
                       - homeassistant.action:
                           action: webostv.button
                           data:
@@ -731,13 +736,11 @@ lvgl:
               - button:
                   id: btn_lg_power
                   grid_cell_column_pos: 1
-                  grid_cell_row_pos: 6
-                  grid_cell_column_span: 1
-                  grid_cell_x_align: CENTER
-                  grid_cell_y_align: STRETCH
+                  grid_cell_row_pos: 3
                   on_click:
                     then:
                       - logger.log: "LG Power button clicked!"
+                      - dfplayer.play_mp3: 3
                       - homeassistant.action:
                           action: media_player.toggle
                           data:
@@ -748,43 +751,39 @@ lvgl:
                         text_font: font_icons
                         text_color: lcars_black
 
-              # Row 9: Kitchen Lamp (left) and Kitchen Uplights (right)
+              # Row 9: Hall lights (left) and Hall Uplight (right)
               - button:
-                  id: btn_kitchen_lamp1
+                  id: btn_hall_lights
                   grid_cell_column_pos: 0
-                  grid_cell_row_pos: 8
-                  grid_cell_column_span: 1
-                  grid_cell_x_align: CENTER
-                  grid_cell_y_align: CENTER
+                  grid_cell_row_pos: 4
                   on_click:
                     then:
-                      - logger.log: "Kitchen Lamp button clicked!"
+                      - logger.log: "Hall Lights button clicked!"
+                      - dfplayer.play_mp3: 3
                       - homeassistant.action:
                           action: light.toggle
                           data:
-                            entity_id: light.kitchen_lamp1
+                            entity_id: light.hall_lights
                   widgets:
                     - label:
-                        text: "KITCHEN\nLAMP"
+                        text: "HALL\nLIGHTS"
                         text_font: font_button
                         text_color: lcars_black
               - button:
-                  id: btn_kitchen_uplights
+                  id: btn_hall_uplight
                   grid_cell_column_pos: 1
-                  grid_cell_row_pos: 8
-                  grid_cell_column_span: 1
-                  grid_cell_x_align: CENTER
-                  grid_cell_y_align: CENTER
+                  grid_cell_row_pos: 4
                   on_click:
                     then:
-                      - logger.log: "Kitchen Uplights button clicked!"
+                      - logger.log: "Hall Uplight button clicked!"
+                      - dfplayer.play_mp3: 3
                       - homeassistant.action:
                           action: light.toggle
                           data:
-                            entity_id: light.kitchen_uplights
+                            entity_id: light.wiser_up_light_switch
                   widgets:
                     - label:
-                        text: "KITCHEN\nUPLIGHTS"
+                        text: "HALL\nUPLIGHT"
                         text_font: font_button
                         text_color: lcars_black
 
