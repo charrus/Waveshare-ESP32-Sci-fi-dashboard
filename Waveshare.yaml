@@ -134,8 +134,7 @@ ch422g:
 # Enable logging
 ################################################################################
 logger:
-  hardware_uart: USB_SERIAL_JTAG
-  level: DEBUG
+  level: INFO
 
 ################################################################################
 # Backlight
@@ -157,6 +156,15 @@ light:
 ################################################################################
 # DFPlayer
 ################################################################################
+# For sound effects: https://www.stdimension.org/MediaLib/computere.htm
+# Should go into an mp3 top level directory, named:
+# mp3/0001.mp3
+# mp3/0002.mp3
+# mp3/0003.mp3
+# etc.
+# So:
+# on_......:
+#   - - dfplayer.play_mp3: 3   # Plays mp3/0003.mp3
 dfplayer:
   uart_id: dfplayer_uart
 
@@ -170,7 +178,7 @@ uart:
 # Fonts
 ################################################################################
 font:
-  - file: "gfonts://DM+Sans@700"
+  - file: "gfonts://Figtree@700"
     id: font_time
     size: 52
     bpp: 4
@@ -182,11 +190,11 @@ font:
       "$wifi",
       "$wifi_off",
       ]
-  - file: "gfonts://DM+Sans@700"
+  - file: "gfonts://Figtree@700"
     id: font_button
     size: 20
     bpp: 4
-  - file: "gfonts://DM+Sans@700"
+  - file: "gfonts://Figtree@700"
     id: font_date
     size: 20
     bpp: 4
@@ -199,7 +207,7 @@ font:
       "$volume_plus",
       "$power",
       ]
-  - file: "gfonts://DM+Sans@700"
+  - file: "gfonts://Figtree@700"
     id: font_volume
     size: 32
     bpp: 4
