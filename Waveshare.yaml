@@ -178,7 +178,7 @@ uart:
 # Fonts
 ################################################################################
 font:
-  - file: "gfonts://Figtree@700"
+  - file: "gfonts://Open+Sans@700"
     id: font_time
     size: 52
     bpp: 4
@@ -190,11 +190,11 @@ font:
       "$wifi",
       "$wifi_off",
       ]
-  - file: "gfonts://Figtree@700"
+  - file: "gfonts://Open+Sans@700"
     id: font_button
     size: 20
     bpp: 4
-  - file: "gfonts://Figtree@700"
+  - file: "gfonts://Open+Sans@700"
     id: font_date
     size: 20
     bpp: 4
@@ -207,7 +207,7 @@ font:
       "$volume_plus",
       "$power",
       ]
-  - file: "gfonts://Figtree@700"
+  - file: "gfonts://Open+Sans@700"
     id: font_volume
     size: 32
     bpp: 4
