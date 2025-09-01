@@ -23,9 +23,13 @@ esphome:
     board_build.flash_mode: dio
     board_build.esp-idf.memory_type: qio_opi
     board_upload.maximum_ram_size: 524288
-    board_build.flash_size: 8MB
+    board_build.flash_size: 16MB
     board_build.f_cpu: 160000000L
 
+external_components:
+  - source: github://esphome/esphome@2025.7.1
+    components: [i2c, ch422g]
+  
 psram:
   mode: octal
   speed: 120MHz
@@ -33,10 +37,12 @@ psram:
 esp32:
   board: esp32-s3-devkitc-1
   variant: esp32s3
-  flash_size: 8MB
+  flash_size: 16MB
   cpu_frequency: 240MHz # For 2025.5.1
   framework:
     type: esp-idf
+    version: 5.3.2
+    platform_version: 53.3.13
     sdkconfig_options: # From: https://www.waveshare.com/wiki/ESP32-S3-Touch-LCD-7#Precautions
       CONFIG_ESP32S3_DATA_CACHE_64KB: "y"
       # CONFIG_ESPTOOLPY_FLASHSIZE_8MB: "y"    # Already set above
@@ -350,7 +356,7 @@ binary_sensor:
   - platform: homeassistant
     id: lounge_sputnik_lights_state
     entity_id: light.lounge_dimmer_light_0
-    publish_initial_state: true
+    trigger_on_initial_state: true
     on_state:
       then:
         - logger.log:
@@ -364,7 +370,7 @@ binary_sensor:
   - platform: homeassistant
     id: lounge_uplights_state
     entity_id: light.lounge_uplights
-    publish_initial_state: true
+    trigger_on_initial_state: true
     on_state:
       then:
         - logger.log:
@@ -378,7 +384,7 @@ binary_sensor:
   - platform: homeassistant
     id: lg_power_state
     entity_id: media_player.lg_webos_smart_tv
-    publish_initial_state: true
+    trigger_on_initial_state: true
     on_state:
       then:
         - logger.log:
@@ -392,7 +398,7 @@ binary_sensor:
   - platform: homeassistant
     id: hall_lights_state
     entity_id: light.hall_lights
-    publish_initial_state: true
+    trigger_on_initial_state: true
     on_state:
       then:
         - logger.log:
@@ -406,7 +412,7 @@ binary_sensor:
   - platform: homeassistant
     id: hall_uplight_state
     entity_id: light.wiser_up_light_switch
-    publish_initial_state: true
+    trigger_on_initial_state: true
     on_state:
       then:
         - logger.log:
