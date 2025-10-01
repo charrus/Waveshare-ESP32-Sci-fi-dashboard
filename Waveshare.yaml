@@ -205,7 +205,7 @@ font:
     bpp: 4
   - file: "gfonts://Open+Sans@700"
     id: font_date
-    size: 20
+    size: 18
     bpp: 4
   - file: "gfonts://Material+Symbols+Rounded@500"
     id: font_icons
@@ -427,7 +427,8 @@ binary_sensor:
 # Display
 ################################################################################
 display:
-  - platform: rpi_dpi_rgb
+  - platform: mipi_rgb
+    model: ESP32-S3-TOUCH-LCD-7-800X480
     id: my_display
     rotation: 90
     update_interval: never
@@ -437,6 +438,12 @@ display:
     dimensions:
       width: 800
       height: 480
+    reset_pin:
+      ch422g: ch422g_hub
+      number: 3
+    enable_pin:
+      ch422g: ch422g_hub
+      number: 2
     de_pin:
       number: GPIO5
     hsync_pin:
@@ -447,12 +454,6 @@ display:
       ignore_strapping_warning: true
     pclk_pin: GPIO7
     pclk_inverted: true
-    reset_pin:
-      ch422g: ch422g_hub
-      number: 3
-    enable_pin:
-      ch422g: ch422g_hub
-      number: 2
     hsync_back_porch: 8
     hsync_front_porch: 8
     hsync_pulse_width: 4
