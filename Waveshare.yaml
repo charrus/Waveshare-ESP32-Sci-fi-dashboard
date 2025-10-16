@@ -20,11 +20,7 @@ esphome:
   build_path: /config/esphome/build/${device_internal_name}
   area: Lounge
   platformio_options:
-    board_build.flash_mode: dio
-    board_build.esp-idf.memory_type: qio_opi
-    board_upload.maximum_ram_size: 524288
-    board_build.flash_size: 16MB
-    board_build.f_cpu: 160000000L
+    board_upload.maximum_ram_size: 524288  # 512KB RAM
 
 external_components:
   - source: github://esphome/esphome@2025.7.1
@@ -35,37 +31,14 @@ psram:
   speed: 120MHz
 
 esp32:
-  board: esp32-s3-devkitc-1
+  board: esp32s3_120_16_8-qio_opi # ESP32-S3 16MB QIO, 8MB OPI PSRAM
   variant: esp32s3
-  flash_size: 16MB
+  flash_size: 8MB
   cpu_frequency: 240MHz # For 2025.5.1
   framework:
     type: esp-idf
     version: 5.3.2
     platform_version: 53.3.13
-    sdkconfig_options: # From: https://www.waveshare.com/wiki/ESP32-S3-Touch-LCD-7#Precautions
-      CONFIG_ESP32S3_DATA_CACHE_64KB: "y"
-      # CONFIG_ESPTOOLPY_FLASHSIZE_8MB: "y"    # Already set above
-      # CONFIG_FREERTOS_HZ: "1000"             # Default for esp32
-      # CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240: y # This is handled above with 2025.5.1 with cpu_frequency
-      CONFIG_ESPTOOLPY_FLASHMODE_QIO: y
-      CONFIG_ESPTOOLPY_FLASHFREQ_120M: y       # To be consistent with PSRAM
-      # CONFIG_SPIRAM_MODE_OCT: y              # This is in psram:mode
-      # CONFIG_IDF_EXPERIMENTAL_FEATURES: y    # This is set in advanced:
-      # CONFIG_SPIRAM_SPEED_120M: y            # This is in psram:speed
-      CONFIG_SPIRAM_FETCH_INSTRUCTIONS: y
-      CONFIG_SPIRAM_RODATA: y
-      CONFIG_ESP32S3_DATA_CACHE_LINE_64B: y
-      # The following LVGL configuration items are helpful for frame rate improvement (LVGL v8.3):
-      # From: https://files.waveshare.com/wiki/common/Performance.pdf
-      CONFIG_COMPILER_OPTIMIZATION_PERF: y
-      CONFIG_COMPILER_OPTIMIZATION_SIZE: n
-      CONFIG_LV_MEMCPY_MEMSET_STD: y            # Using esp-idf `memcpy` and `memset` instead LVGL's configuration Native esp-idf implementation are a little (~1-3 FPS) faster.
-      CONFIG_LV_ATTRIBUTE_FAST_MEM_USE_IRAM: y  # This option puts the most frequently used LVGL functions into IRAM for execution speed up.
-      CONFIG_ESP_MAIN_TASK_AFFINITY_CPU1: y     # The main LVGL task can be processed on the second core of the CPU. It can increase performance
-      # We don't have BOOTLOADER_FLASH_DC_AWARE, explicitly set it to n
-      CONFIG_BOOTLOADER_FLASH_DC_AWARE: n
-      CONFIG_SPI_FLASH_HPM_DC_DISABLE: y
     advanced:
       # Required for 120MHz PSRAM & FLASH:
       enable_idf_experimental_features: True
@@ -144,6 +117,7 @@ ch422g:
 ################################################################################
 logger:
   level: INFO
+  #hardware_uart: USB_SERIAL_JTAG
 
 ################################################################################
 # Backlight
@@ -441,9 +415,6 @@ display:
     reset_pin:
       ch422g: ch422g_hub
       number: 3
-    enable_pin:
-      ch422g: ch422g_hub
-      number: 2
     de_pin:
       number: GPIO5
     hsync_pin:
@@ -488,7 +459,6 @@ touchscreen:
   platform: gt911
   id: my_touch
   interrupt_pin: GPIO4
-  # update_interval: 16ms
   reset_pin:
     ch422g: ch422g_hub
     number: 1
@@ -497,16 +467,16 @@ touchscreen:
     swap_xy: true
     mirror_x: false
     mirror_y: true
-  on_touch:
-    - lambda: |-
-        ESP_LOGI("Touch", "Touch detected at x=%d, y=%d", touch.x, touch.y);
-  on_update:
-    - lambda: |-
-          for (auto touch: touches)  {
-              if (touch.state <= 2) {
-                ESP_LOGI("Touch points:", "id=%d x=%d, y=%d x.raw=%d, y.raw=%d", touch.id, touch.x, touch.y, touch.x_raw, touch.y_raw);
-              }
-          }  
+  #on_touch:
+  #  - lambda: |-
+  #      ESP_LOGI("Touch", "Touch detected at x=%d, y=%d", touch.x, touch.y);
+  #on_update:
+  #  - lambda: |-
+  #        for (auto touch: touches)  {
+  #            if (touch.state <= 2) {
+  #              ESP_LOGI("Touch points:", "id=%d x=%d, y=%d x.raw=%d, y.raw=%d", touch.id, touch.x, touch.y, touch.x_raw, touch.y_raw);
+  #            }
+  #        }  
 
 ################################################################################
 # Background
@@ -524,7 +494,6 @@ image:
 lvgl:
   displays: my_display
   touchscreens: my_touch
-  log_level: INFO
   theme:
     button:
       width: 160
