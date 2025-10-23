@@ -484,7 +484,7 @@ touchscreen:
 image:
   - file: "images/background.png"  # Relative path
     id: lcars_background
-    type: RGB565  # As confirmed by your successful compile
+    type: RGB565
     resize: 480x800
 
 ################################################################################
@@ -493,6 +493,7 @@ image:
 lvgl:
   displays: my_display
   touchscreens: my_touch
+
   theme:
     button:
       width: 160
@@ -510,20 +511,29 @@ lvgl:
         bg_opa: COVER
     label:
       border_width: 0
-      align: CENTER
-      text_align: CENTER
+
   style_definitions:
     - id: header_footer
       bg_color: lcars_black
-      bg_opa: TRANSP
       radius: 0
       pad_all: 0
       text_color: lcars_orange
       border_width: 0
+      bg_opa: TRANSP
+    - id: text_button
+      align: CENTER
+      text_align: CENTER
+      text_font: font_button
+      text_color: lcars_black
+    - id: icon_button
+      align: CENTER
+      text_align: CENTER
+      text_font: font_icons
+      text_color: lcars_black
   pages:
     - id: main_page
       widgets:
-        # Root object with the new background image
+        # Root object with the background image
         - obj:
             x: 0
             y: 0
@@ -532,15 +542,15 @@ lvgl:
             styles: header_footer
             bg_image_src: lcars_background
             bg_image_opa: COVER
-            bg_image_recolor_opa: 0  # No recoloring
 
-        # Time and Date area (orange text, moved back to original left position)
+        # Time and Date area
         - obj:
-            x: 82
+            x: 90
             y: 4
-            width: 220
-            height: 84
+            width: 204
+            height: 90
             styles: header_footer
+            align: TOP_LEFT
             widgets:
               - label:
                   id: lbl_current_time
@@ -589,9 +599,8 @@ lvgl:
                             entity_id: light.lounge_dimmer
                   widgets:
                     - label:
+                        styles: text_button
                         text: "LOUNGE\nSPUTNIK"
-                        text_font: font_button
-                        text_color: lcars_black
               - button:
                   id: btn_lounge_uplights
                   grid_cell_column_pos: 1
@@ -606,12 +615,10 @@ lvgl:
                             entity_id: light.lounge_uplights
                   widgets:
                     - label:
-                        id: btn_lounge_uplights_text
+                        styles: text_button
                         text: "LOUNGE\nUPLIGHTS"
-                        text_font: font_button
-                        text_color: lcars_black
 
-              # Row 3: VolDown (left) and Vol Up (right)
+              # Row 2: VolDown (left) and Vol Up (right)
               - button:
                   id: btn_voldown
                   grid_cell_column_pos: 0
@@ -626,9 +633,8 @@ lvgl:
                             entity_id: media_player.lounge_speakers
                   widgets:
                     - label:
+                        styles: icon_button
                         text: "$volume_minus"
-                        text_font: font_icons
-                        text_color: lcars_black
               - button:
                   id: btn_volup
                   grid_cell_column_pos: 1
@@ -643,11 +649,10 @@ lvgl:
                             entity_id: media_player.lounge_speakers
                   widgets:
                     - label:
+                        styles: icon_button
                         text: "$volume_plus"
-                        text_font: font_icons
-                        text_color: lcars_black
 
-              # Row 5: Kodi (left) and iPlayer (right)
+              # Row 3: Kodi (left) and iPlayer (right)
               - button:
                   id: btn_kodi
                   grid_cell_column_pos: 0
@@ -667,9 +672,8 @@ lvgl:
                             source: Game Console
                   widgets:
                     - label:
+                        styles: text_button
                         text: "KODI"
-                        text_font: font_button
-                        text_color: lcars_black
               - button:
                   id: btn_iplayer
                   grid_cell_column_pos: 1
@@ -695,11 +699,10 @@ lvgl:
                             button: ENTER
                   widgets:
                     - label:
+                        styles: text_button
                         text: "IPLAYER"
-                        text_font: font_button
-                        text_color: lcars_black
 
-              # Row 7: OK (left) and Power (right)
+              # Row 4: OK (left) and Power (right)
               - button:
                   id: btn_ok
                   grid_cell_column_pos: 0
@@ -715,9 +718,8 @@ lvgl:
                             button: ENTER
                   widgets:
                     - label:
+                        styles: text_button
                         text: "OK"
-                        text_font: font_button
-                        text_color: lcars_black
               - button:
                   id: btn_lg_power
                   grid_cell_column_pos: 1
@@ -732,11 +734,10 @@ lvgl:
                             entity_id: media_player.lg_webos_smart_tv
                   widgets:
                     - label:
+                        styles: icon_button
                         text: "$power"
-                        text_font: font_icons
-                        text_color: lcars_black
 
-              # Row 9: Hall lights (left) and Hall Uplight (right)
+              # Row 5: Hall lights (left) and Hall Uplight (right)
               - button:
                   id: btn_hall_lights
                   grid_cell_column_pos: 0
@@ -751,9 +752,8 @@ lvgl:
                             entity_id: light.hall_lights
                   widgets:
                     - label:
+                        styles: text_button
                         text: "HALL\nLIGHTS"
-                        text_font: font_button
-                        text_color: lcars_black
               - button:
                   id: btn_hall_uplight
                   grid_cell_column_pos: 1
@@ -768,15 +768,14 @@ lvgl:
                             entity_id: light.wiser_up_light_switch
                   widgets:
                     - label:
+                        styles: text_button
                         text: "HALL\nUPLIGHT"
-                        text_font: font_button
-                        text_color: lcars_black
 
-        # Volume Percentage area (orange text, bottom left black area)
+        # Volume Percentage area
         - obj:
-            x: 58
+            x: 66
             y: 736
-            width: 254
+            width: 234
             height: 56
             styles: header_footer
             widgets:
