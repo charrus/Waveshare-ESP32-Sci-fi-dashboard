@@ -18,7 +18,14 @@ By using a different board (previously this was the default [`esp32-s3-devkitc-1
 it looks like [`esp32s3_120_16_8-qio_opi`](https://github.com/pioarduino/platform-espressif32/blob/main/boards/esp32s3_120_16_8-qio_opi.json)
 is a better match as it's for an ESP32-S3 with 16MB QIO Flash and 8MB OPI PSRAM running at 120MHz. The `build.f_boot` which I suspect is similar to
 the `CONFIG_ESPTOOLPY_FLASHFREQ_120M: y` in `sdkconfig_options` was introduced with
-[Platformio: S3 QIO 120Mhz Flash speed not possible #9351](https://github.com/espressif/arduino-esp32/issues/9351) 
+[Platformio: S3 QIO 120Mhz Flash speed not possible #9351](https://github.com/espressif/arduino-esp32/issues/9351)
+
+#### Caveat after initial upload
+
+One thing to watch out for is that sometimes after uploading the device doesn't respond - just hit the reset button on the back and that
+should bring it back to life. Usually this only happens on the first time, and further OTA updates go as normal.
+
+#### Similar kits, for example the 7B variant
 
 There's also a [`esp32-s3-devkitc1-n16r8`](https://github.com/pioarduino/platform-espressif32/blob/main/boards/esp32-s3-devkitc1-n16r8.json) board for the
 Espressif ESP32-S3-DevKitC-1-N16R8V (16 MB Flash Quad, 8 MB PSRAM Octal), but this doesn't include the PSRAM running at 120MHz (I think is defaults to 80MHz).

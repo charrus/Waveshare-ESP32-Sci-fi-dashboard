@@ -34,9 +34,9 @@ esp32:
   framework:
     type: esp-idf
     sdkconfig_options:
-      CONFIG_BOOTLOADER_FLASH_DC_AWARE: n     # To fix reset issue
-      CONFIG_SPI_FLASH_HPM_DC_DISABLE: y
-      CONFIG_ESP_CONSOLE_USB_CDC: y
+      CONFIG_BOOTLOADER_FLASH_DC_AWARE: n     # After the first upload you may
+      CONFIG_SPI_FLASH_HPM_DC_DISABLE: y      # have to press the reset button on the back
+      CONFIG_ESP_CONSOLE_USB_CDC: y           # these options fix that for further OTA updates
     advanced:
       # Required for 120MHz PSRAM & FLASH:
       enable_idf_experimental_features: True
