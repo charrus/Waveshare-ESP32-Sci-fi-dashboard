@@ -5,11 +5,13 @@ substitutions:
   device_internal_name: waveshare_7inch
   device_wifi_name: "waveshare-7inch"
   friendly_name: Waveshare 7inch
-  volume_minus: "\ue04d"
-  volume_plus:  "\ue050"
   power:        "\uf16f"
   wifi:         "\ue63e"
   wifi_off:     "\ue648"
+  left:         "\ue5c4"
+  right:        "\ue5c8"
+  up:           "\ue5d8"
+  down:         "\ue5db"
 
 ################################################################################
 # Board Configuration
@@ -159,11 +161,11 @@ uart:
 # Fonts
 ################################################################################
 font:
-  - file: "gfonts://Open+Sans@700"
+  - file: "gfonts://Oswald@700"
     id: font_time
     size: 52
     bpp: 4
-  - file: "gfonts://Material+Symbols+Rounded@500"
+  - file: "gfonts://Material+Symbols+Rounded@700"
     id: font_wifi
     size: 48
     bpp: 4
@@ -171,24 +173,26 @@ font:
       "$wifi",
       "$wifi_off",
       ]
-  - file: "gfonts://Open+Sans@700"
+  - file: "gfonts://Oswald@700"
     id: font_button
+    size: 25
+    bpp: 4
+  - file: "gfonts://Oswald@700"
+    id: font_date
     size: 20
     bpp: 4
-  - file: "gfonts://Open+Sans@700"
-    id: font_date
-    size: 18
-    bpp: 4
-  - file: "gfonts://Material+Symbols+Rounded@500"
+  - file: "gfonts://Material+Symbols+Rounded@700"
     id: font_icons
     size: 36
     bpp: 4
     glyphs: [
-      "$volume_minus",
-      "$volume_plus",
       "$power",
+      "$left",
+      "$right",
+      "$up",
+      "$down",
       ]
-  - file: "gfonts://Open+Sans@700"
+  - file: "gfonts://Oswald@700"
     id: font_volume
     size: 32
     bpp: 4
@@ -241,7 +245,7 @@ script:
       - lvgl.label.update:
           id: lbl_current_date
           text:
-            time_format: "%A %b %d %Y"
+            time_format: "%A %B %d %Y"
             time: !lambda return id(homeassistant_time).now();
 
 ################################################################################
@@ -299,11 +303,15 @@ sensor:
         - logger.log:
             format: "Sonos volume state: %f"
             args: [ x ]
+        - lvgl.slider.update:
+            id: slider_media_player
+            value: !lambda return (x * 100);
         - lvgl.label.update:
             id: lbl_volume_percentage
             text:
-              format: "Volume: %.0f%%"
+              format: "%.0f%%"
               args: [ x * 100 ]
+            
 
 ################################################################################
 # Text Sensors
@@ -373,33 +381,6 @@ binary_sensor:
             state:
               checked: !lambda return x;
 
-  - platform: homeassistant
-    id: hall_lights_state
-    entity_id: light.hall_lights
-    trigger_on_initial_state: true
-    on_state:
-      then:
-        - logger.log:
-            format: "Hall Lights state: %d"
-            args: [ 'x' ]
-        - lvgl.widget.update:
-            id: btn_hall_lights
-            state:
-              checked: !lambda return x;
-
-  - platform: homeassistant
-    id: hall_uplight_state
-    entity_id: light.wiser_up_light_switch
-    trigger_on_initial_state: true
-    on_state:
-      then:
-        - logger.log:
-            format: "Hall Uplight state: %d"
-            args: [ 'x' ]
-        - lvgl.widget.update:
-            id: btn_hall_uplight
-            state:
-              checked: !lambda return x;
 
   - platform: status
     name: "Status"
@@ -497,10 +478,10 @@ lvgl:
   theme:
     button:
       width: 160
-      height: 70
+      height: 72
       bg_color: lcars_lightblue  # Off / Unchecked
       bg_opa: 50%
-      radius: 20
+      radius: 35
       border_width: 0
       shadow_opa: TRANSP
       pressed:
@@ -514,7 +495,6 @@ lvgl:
 
   style_definitions:
     - id: header_footer
-      bg_color: lcars_black
       radius: 0
       pad_all: 0
       text_color: lcars_orange
@@ -539,16 +519,18 @@ lvgl:
             y: 0
             width: 480
             height: 800
-            styles: header_footer
+            bg_color: lcars_black
             bg_image_src: lcars_background
             bg_image_opa: COVER
+            border_width: 0
+            pad_all: 0
 
         # Time and Date area
         - obj:
             x: 90
-            y: 4
+            y: 0
             width: 204
-            height: 90
+            height: 94
             styles: header_footer
             align: TOP_LEFT
             widgets:
@@ -556,7 +538,7 @@ lvgl:
                   id: lbl_current_time
                   align: TOP_LEFT
                   text_font: font_time
-                  text: "--:--"
+                  text: " "
               - label:
                   id: lbl_hastatus
                   align: TOP_RIGHT
@@ -564,9 +546,9 @@ lvgl:
                   text_font: font_wifi
               - label:
                   id: lbl_current_date
-                  align: BOTTOM_LEFT
+                  align: BOTTOM_MID
                   text_font: font_date
-                  text: "Friday May 30 2025"
+                  text: " "
 
         # Button grid
         - obj:
@@ -579,8 +561,8 @@ lvgl:
             border_width: 0
             layout:
               type: GRID
-              grid_columns: ["180px", "180px"]
-              grid_rows: ["95px", "95px", "95px", "95px", "95px"]
+              grid_columns: [FR(1), FR(1)]
+              grid_rows: [FR(1), FR(1), FR(1), FR(1), FR(1)]
               pad_row: 10
               pad_column: 10
             widgets:
@@ -618,45 +600,11 @@ lvgl:
                         styles: text_button
                         text: "LOUNGE\nUPLIGHTS"
 
-              # Row 2: VolDown (left) and Vol Up (right)
-              - button:
-                  id: btn_voldown
-                  grid_cell_column_pos: 0
-                  grid_cell_row_pos: 1
-                  on_click:
-                    then:
-                      - logger.log: "VolDown button clicked!"
-                      - dfplayer.play_mp3: 3
-                      - homeassistant.action:
-                          action: media_player.volume_down
-                          data:
-                            entity_id: media_player.lounge_speakers
-                  widgets:
-                    - label:
-                        styles: icon_button
-                        text: "$volume_minus"
-              - button:
-                  id: btn_volup
-                  grid_cell_column_pos: 1
-                  grid_cell_row_pos: 1
-                  on_click:
-                    then:
-                      - logger.log: "Vol Up button clicked!"
-                      - dfplayer.play_mp3: 3
-                      - homeassistant.action:
-                          action: media_player.volume_up
-                          data:
-                            entity_id: media_player.lounge_speakers
-                  widgets:
-                    - label:
-                        styles: icon_button
-                        text: "$volume_plus"
-
-              # Row 3: Kodi (left) and iPlayer (right)
+              # Row 2: Kodi (left) and iPlayer (right)
               - button:
                   id: btn_kodi
                   grid_cell_column_pos: 0
-                  grid_cell_row_pos: 2
+                  grid_cell_row_pos: 1
                   on_click:
                     then:
                       - logger.log: "Kodi button clicked!"
@@ -677,7 +625,7 @@ lvgl:
               - button:
                   id: btn_iplayer
                   grid_cell_column_pos: 1
-                  grid_cell_row_pos: 2
+                  grid_cell_row_pos: 1
                   on_click:
                     then:
                       - logger.log: "iPlayer button clicked!"
@@ -702,11 +650,11 @@ lvgl:
                         styles: text_button
                         text: "IPLAYER"
 
-              # Row 4: OK (left) and Power (right)
+              # Row 3: OK (left) and Power (right)
               - button:
                   id: btn_ok
                   grid_cell_column_pos: 0
-                  grid_cell_row_pos: 3
+                  grid_cell_row_pos: 2
                   on_click:
                     then:
                       - logger.log: "OK button clicked!"
@@ -723,7 +671,7 @@ lvgl:
               - button:
                   id: btn_lg_power
                   grid_cell_column_pos: 1
-                  grid_cell_row_pos: 3
+                  grid_cell_row_pos: 2
                   on_click:
                     then:
                       - logger.log: "LG Power button clicked!"
@@ -737,50 +685,123 @@ lvgl:
                         styles: icon_button
                         text: "$power"
 
-              # Row 5: Hall lights (left) and Hall Uplight (right)
+              # Row 4: Left (left) and Right (right)
               - button:
-                  id: btn_hall_lights
+                  id: btn_left
+                  grid_cell_column_pos: 0
+                  grid_cell_row_pos: 3
+                  on_click:
+                    then:
+                      - logger.log: "Right button clicked!"
+                      - dfplayer.play_mp3: 3
+                      - homeassistant.action:
+                          action: webostv.button
+                          data:
+                            entity_id: media_player.lg_webos_smart_tv
+                            button: LEFT
+                  widgets:
+                    - label:
+                        styles: icon_button
+                        text: "$left"
+              - button:
+                  id: btn_right
+                  grid_cell_column_pos: 1
+                  grid_cell_row_pos: 3
+                  on_click:
+                    then:
+                      - logger.log: "Right button clicked!"
+                      - dfplayer.play_mp3: 3
+                      - homeassistant.action:
+                          action: webostv.button
+                          data:
+                            entity_id: media_player.lg_webos_smart_tv
+                            button: RIGHT
+                  widgets:
+                    - label:
+                        styles: icon_button
+                        text: "$right"
+
+              # Row 5: Up (left) and Down (right)
+              - button:
+                  id: btn_up
                   grid_cell_column_pos: 0
                   grid_cell_row_pos: 4
                   on_click:
                     then:
-                      - logger.log: "Hall Lights button clicked!"
+                      - logger.log: "Up button clicked!"
                       - dfplayer.play_mp3: 3
                       - homeassistant.action:
-                          action: light.toggle
+                          action: webostv.button
                           data:
-                            entity_id: light.hall_lights
+                            entity_id: media_player.lg_webos_smart_tv
+                            button: UP
                   widgets:
                     - label:
-                        styles: text_button
-                        text: "HALL\nLIGHTS"
+                        styles: icon_button
+                        text: "$up"
               - button:
-                  id: btn_hall_uplight
+                  id: btn_down
                   grid_cell_column_pos: 1
                   grid_cell_row_pos: 4
                   on_click:
                     then:
-                      - logger.log: "Hall Uplight button clicked!"
+                      - logger.log: "Down button clicked!"
                       - dfplayer.play_mp3: 3
                       - homeassistant.action:
-                          action: light.toggle
+                          action: webostv.button
                           data:
-                            entity_id: light.wiser_up_light_switch
+                            entity_id: media_player.lg_webos_smart_tv
+                            button: DOWN
                   widgets:
                     - label:
-                        styles: text_button
-                        text: "HALL\nUPLIGHT"
+                        styles: icon_button
+                        text: "$down"
 
         # Volume Percentage area
         - obj:
-            x: 66
-            y: 736
-            width: 234
-            height: 56
             styles: header_footer
+            x: 60
+            y: 728
+            width: 412
+            height: 68
+            align: TOP_LEFT
+            scrollbar_mode: "OFF"
             widgets:
+              - slider:
+                  id: slider_media_player
+                  align: LEFT_MID
+                  width: 300
+                  height: 25
+                  pad_all: 4
+                  bg_color: lcars_lightblue
+                  indicator:
+                    bg_color: lcars_lightblue
+                  knob:
+                    bg_color: lcars_lightorange
+                    pressed:
+                      pad_all: 20
+                  min_value: 0
+                  max_value: 100
+                  adv_hittest: True
+                  on_change:
+                    - homeassistant.action:
+                        action: media_player.volume_set
+                        data:
+                          entity_id: media_player.speakers
+                          volume_level: !lambda return (x / 100);
+                  on_press:
+                    then:
+                      - logger.log: "Initital press of volume slider"
+                      - dfplayer.play_mp3: 2
+                  on_release:
+                    then:
+                      - logger.log: "Release of volume slider"
+                      - dfplayer.play_mp3: 1
               - label:
                   id: lbl_volume_percentage
-                  align: BOTTOM_LEFT
-                  text: "Volume: 0%"
+                  height: 68
+                  width: 100
+                  align: RIGHT_MID
+                  text_align: RIGHT
+                  text: "%"
                   text_font: font_volume
