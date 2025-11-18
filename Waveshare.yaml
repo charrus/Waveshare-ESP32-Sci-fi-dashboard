@@ -5,6 +5,8 @@ substitutions:
   device_internal_name: waveshare_7inch
   device_wifi_name: "waveshare-7inch"
   friendly_name: Waveshare 7inch
+  volume_minus: "\ue04d"
+  volume_plus:  "\ue050"
   power:        "\uf16f"
   wifi:         "\ue63e"
   wifi_off:     "\ue648"
@@ -19,29 +21,20 @@ substitutions:
 esphome:
   name: ${device_wifi_name}
   friendly_name: ${friendly_name}
-  build_path: /config/esphome/build/${device_internal_name}
   area: Lounge
   platformio_options:
     board_upload.maximum_ram_size: 524288
 
 psram:
   mode: octal
-  speed: 120MHz
+  speed: 80Mhz
 
 esp32:
-  board: esp32s3_120_16_8-qio_opi
   variant: esp32s3
-  flash_size: 8MB
+  flash_size: 16MB
   cpu_frequency: 240MHz
   framework:
     type: esp-idf
-    sdkconfig_options:
-      CONFIG_BOOTLOADER_FLASH_DC_AWARE: n     # After the first upload you may
-      CONFIG_SPI_FLASH_HPM_DC_DISABLE: y      # have to press the reset button on the back
-      CONFIG_ESP_CONSOLE_USB_CDC: y           # these options fix that for further OTA updates
-    advanced:
-      # Required for 120MHz PSRAM & FLASH:
-      enable_idf_experimental_features: True
 
 ################################################################################
 # WiFi
@@ -112,6 +105,7 @@ i2c:
   scl: GPIO09
   scan: true
   id: bus_a
+  frequency: 400kHz
 
 ################################################################################
 # IO Extender
@@ -245,7 +239,7 @@ script:
       - lvgl.label.update:
           id: lbl_current_date
           text:
-            time_format: "%A %B %d %Y"
+            time_format: "%A %b %d %Y"
             time: !lambda return id(homeassistant_time).now();
 
 ################################################################################
@@ -269,15 +263,16 @@ button:
   - platform: safe_mode
     name: "(Safe Mode)"
     icon: mdi:restart-alert
-    id: "${device_internal_name}_safe_mode"
+    id: safe_mode_btn
     entity_category: config
   - platform: restart
     name: "Restart"
     icon: mdi:restart
-    id: "${device_internal_name}_restart"
+    id: restart_btn
   - platform: shutdown
     name: "Shutdown"
-    id: "${device_internal_name}_shutdown"
+    icon: mdi:power-off
+    id: shutdown_btn
 
 ################################################################################
 # Sensors
@@ -805,3 +800,4 @@ lvgl:
                   text_align: RIGHT
                   text: "%"
                   text_font: font_volume
+
